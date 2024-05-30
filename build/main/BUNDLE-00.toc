@@ -1,1 +1,3 @@
-([('main', '/Users/sk/Documents/EDU_Python/PPT_BD/dist/main', 'EXECUTABLE')],)
+([('main',
+   '/Users/sk/Documents/EDU_Python/PPT_BD/Polarpor_DB_win_clean/dist/main',
+   'EXECUTABLE')],)
