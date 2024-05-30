@@ -1,0 +1,1 @@
+([('main', '/Users/sk/Documents/EDU_Python/PPT_BD/dist/main', 'EXECUTABLE')],)

@@ -1,0 +1,1 @@
+('/Users/sk/Documents/EDU_Python/PPT_BD/build/main/PYZ-00.pyz', [])
