@@ -130,6 +130,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.delete_proforma_button)
 
         self.proforma_numbers_tab.setLayout(layout)
+        self.load_proforma_table_data()  # Загрузка данных проформ при инициализации
 
     def add_proforma_number(self):
         try:
@@ -138,7 +139,13 @@ class MainWindow(QMainWindow):
             comment = self.proforma_comment_input.text()
             proforma_number = self.generate_proforma_number()
 
-            firebase_manager.add_case(case_number, name, comment)
+            firebase_manager.add_proforma(proforma_number, {
+                'case_number': case_number,
+                'name': name,
+                'proforma_number': proforma_number,
+                'comment': comment,
+                'creation_date': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            })
 
             # Обновите ваш GUI здесь
 
@@ -149,8 +156,8 @@ class MainWindow(QMainWindow):
         row_position = self.proforma_table.rowCount()
         self.proforma_table.insertRow(row_position)
         self.proforma_table.setItem(row_position, 0, QTableWidgetItem(case_number))
-        self.proforma_table.setItem(row_position, 1, QTableWidgetItem(proforma_number))
-        self.proforma_table.setItem(row_position, 2, QTableWidgetItem(name))
+        self.proforma_table.setItem(row_position, 1, QTableWidgetItem(name))
+        self.proforma_table.setItem(row_position, 2, QTableWidgetItem(proforma_number))
         self.proforma_table.setItem(row_position, 3, QTableWidgetItem(comment))
 
     def populate_names_combobox(self):
@@ -165,56 +172,41 @@ class MainWindow(QMainWindow):
 
     def generate_proforma_number(self):
         last_proforma = self.get_last_proforma_number()
-        print(f"Last proforma number from DB: {last_proforma}")  # Debug print
         if last_proforma is None:
             new_proforma_number = str(self.initial_proforma_number)
         else:
-            new_proforma_number is str(int(last_proforma) + 1)
-        print(f"New proforma number being generated: {new_proforma_number}")  # Debug print
+            new_proforma_number = str(int(last_proforma) + 1)
         return new_proforma_number
-
-    def populate_case_numbers(self):
-        cases = firebase_manager.get_all_cases()
-        for case_id, case in cases.items():
-            self.case_numbers_combobox.addItem(case_id)
-
-        # Очищаем выпадающий список перед добавлением новых элементов
-        self.names_combobox.clear()
-
-        # Добавляем номера дел в выпадающий список
-        names = [case['name'] for case in cases.values()]
-        self.names_combobox.addItems(names)
-
-    def populate_customers(self):
-        cases = firebase_manager.get_all_cases()
-        customers = [case['customer'] for case in cases.values()]
-        self.customer_input.addItems(customers)
-
-    def populate_names(self):
-        cases = firebase_manager.get_all_cases()
-        names = [case['name'] for case in cases.values()]
-        self.name_input.addItems(names)
 
     def load_case_table_data(self):
         self.case_table.setRowCount(0)
-        self.case_table.setColumnCount(5)  # Установка количества столбцов
-        # Перенастройка заголовков с ID на первом месте
-        self.case_table.setHorizontalHeaderLabels(["ID", "Имя", "Заказчик", "Комментарий", "Дата создания"])
+        self.case_table.setColumnCount(5)
+        self.case_table.setHorizontalHeaderLabels(["Имя", "Заказчик", "Комментарий", "Дата создания", "ID"])
 
         cases = firebase_manager.get_all_cases()
         if cases:
             for case_id, case in cases.items():
                 row_position = self.case_table.rowCount()
                 self.case_table.insertRow(row_position)
-                # Форматирование даты создания
                 formatted_date = case.get('creation_date', 'N/A')
-                # Добавление данных в строку с учетом нового порядка столбцов
                 adjusted_id = int(case_id)
-                self.case_table.setItem(row_position, 0, QTableWidgetItem(str(adjusted_id)))  # ID
-                self.case_table.setItem(row_position, 1, QTableWidgetItem(case['name']))  # Имя
-                self.case_table.setItem(row_position, 2, QTableWidgetItem(case['customer']))  # Заказчик
-                self.case_table.setItem(row_position, 3, QTableWidgetItem(case['comment']))  # Комментарий
-                self.case_table.setItem(row_position, 4, QTableWidgetItem(formatted_date))  # Дата создания
+                self.case_table.setItem(row_position, 4, QTableWidgetItem(str(adjusted_id)))
+                self.case_table.setItem(row_position, 0, QTableWidgetItem(case['name']))
+                self.case_table.setItem(row_position, 1, QTableWidgetItem(case['customer']))
+                self.case_table.setItem(row_position, 2, QTableWidgetItem(case['comment']))
+                self.case_table.setItem(row_position, 3, QTableWidgetItem(formatted_date))
+
+    def load_proforma_table_data(self):
+        self.proforma_table.setRowCount(0)
+        proformas = firebase_manager.get_all_proformas()
+        if proformas:
+            for proforma_id, proforma in proformas.items():
+                row_position = self.proforma_table.rowCount()
+                self.proforma_table.insertRow(row_position)
+                self.proforma_table.setItem(row_position, 0, QTableWidgetItem(proforma['case_number']))
+                self.proforma_table.setItem(row_position, 1, QTableWidgetItem(proforma['name']))
+                self.proforma_table.setItem(row_position, 2, QTableWidgetItem(proforma['proforma_number']))
+                self.proforma_table.setItem(row_position, 3, QTableWidgetItem(proforma['comment']))
 
     def add_new_case(self):
         name = self.name_input.currentText().strip()
@@ -224,7 +216,12 @@ class MainWindow(QMainWindow):
         if name:
             try:
                 case_id = str(self.initial_case_id + len(firebase_manager.get_all_cases()))
-                firebase_manager.add_case(case_id, name, customer, comment)
+                firebase_manager.add_case(case_id, {
+                    'name': name,
+                    'customer': customer,
+                    'comment': comment,
+                    'creation_date': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                })
                 self.load_case_table_data()
                 self.name_input.setCurrentIndex(-1)
                 self.customer_input.setCurrentIndex(-1)
@@ -232,9 +229,7 @@ class MainWindow(QMainWindow):
             except Exception as e:
                 QMessageBox.critical(self, "Ошибка", str(e))
         else:
-            QMessageBox.warning(
-                self, "Ошибка ввода", "Поле 'Имя' должно быть заполнено."
-            )
+            QMessageBox.warning(self, "Ошибка ввода", "Поле 'Имя' должно быть заполнено.")
 
     def confirm_delete_case(self):
         selected_row = self.case_table.currentRow()
@@ -262,13 +257,24 @@ class MainWindow(QMainWindow):
                 QMessageBox.No,
             )
             if reply == QMessageBox.Yes:
-                case_id = self.proforma_table.item(selected_row, 0).text()
-                firebase_manager.delete_case(case_id)  # Измените это в зависимости от вашей логики
+                proforma_id = self.proforma_table.item(selected_row, 2).text()
+                firebase_manager.delete_proforma(proforma_id)
+                self.load_proforma_table_data()
 
     def get_last_proforma_number(self):
-        cases = firebase_manager.get_all_cases()
-        proforma_numbers = [int(case['proforma_number']) for case in cases.values() if 'proforma_number' in case]
+        proformas = firebase_manager.get_all_proformas()
+        proforma_numbers = [int(proforma['proforma_number']) for proforma in proformas.values() if 'proforma_number' in proforma]
         return max(proforma_numbers) if proforma_numbers else None
+
+    def populate_customers(self):
+        cases = firebase_manager.get_all_cases()
+        customers = [case['customer'] for case in cases.values()]
+        self.customer_input.addItems(customers)
+
+    def populate_names(self):
+        cases = firebase_manager.get_all_cases()
+        names = [case['name'] for case in cases.values()]
+        self.name_input.addItems(names)
 
 
 if __name__ == "__main__":
