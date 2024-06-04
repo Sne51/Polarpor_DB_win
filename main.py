@@ -20,6 +20,7 @@ from PyQt5.QtWidgets import (
     QHeaderView,
 )
 from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QFont
 
 # Настройка логирования
 logging.basicConfig(level=logging.DEBUG, filename='app.log', filemode='w',
@@ -28,14 +29,12 @@ logging.basicConfig(level=logging.DEBUG, filename='app.log', filemode='w',
 # Инициализация Firebase
 firebase_manager = FirebaseManager()
 
-
 def load_initial_case_id():
     base_path = getattr(sys, '_MEIPASS', '.')
     config_path = os.path.join(base_path, 'config.json')
     with open(config_path, 'r') as file:
         data = json.load(file)
         return data['initial_case_id']
-
 
 def load_initial_proforma_number():
     base_path = getattr(sys, '_MEIPASS', '.')
@@ -44,26 +43,22 @@ def load_initial_proforma_number():
         data = json.load(file)
         return int(data['initial_proforma_number'])
 
-
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Система Управления")
         self.setGeometry(100, 100, 800, 600)
+
+        # Установка глобального стиля и размера шрифта
+        font = QFont("Arial", 12)  # Устанавливаем размер шрифта 12
+        self.setFont(font)
+
         self.tabs = QTabWidget(self)
         self.setCentralWidget(self.tabs)
-        self.initial_case_id = load_initial_case_id()  # Загрузка начального ID дел
-        self.initial_proforma_number = load_initial_proforma_number()  # Загрузка начального номера проформы
+        self.initial_case_id = load_initial_case_id()
+        self.initial_proforma_number = load_initial_proforma_number()
         self.setup_case_numbers_tab()
         self.setup_proforma_numbers_tab()
-
-    def setup_case_table_headers(self):
-        self.case_table.setColumnCount(5)  # Устанавливаем количество столбцов
-        # Устанавливаем заголовки столбцов с ID на первом месте
-        self.case_table.setHorizontalHeaderLabels(
-            ["ID", "Имя", "Заказчик", "Комментарий", "Дата создания"]
-        )
-        self.case_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)  # Растягиваем столбцы для заполнения пространства таблицы
 
     def setup_case_numbers_tab(self):
         self.case_numbers_tab = QWidget()
@@ -71,9 +66,7 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout()
         self.case_table = QTableWidget()
         self.case_table.setColumnCount(5)
-        self.case_table.setHorizontalHeaderLabels(
-            ["Имя", "Заказчик", "Комментарий", "Дата создания", "ID"]
-        )
+        self.case_table.setHorizontalHeaderLabels(["Имя", "Заказчик", "Комментарий", "Дата создания", "ID"])
         self.case_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.load_case_table_data()
         self.name_input = QComboBox()
@@ -108,17 +101,17 @@ class MainWindow(QMainWindow):
 
         self.names_combobox = QComboBox()
         self.case_numbers_combobox = QComboBox()
-        self.proforma_comment_input = QLineEdit()  # Убрано ограничение высоты
+        self.proforma_comment_input = QLineEdit()
 
-        self.populate_names_combobox()  # Заполняем комбобокс именами
-        self.populate_case_numbers_combobox()  # Заполняем комбобокс номерами дел
+        self.populate_names_combobox()
+        self.populate_case_numbers_combobox()
 
         layout.addWidget(self.proforma_table)
         layout.addWidget(QLabel("Выберите имя из вкладки 'Номера дел':"))
         layout.addWidget(self.names_combobox)
         layout.addWidget(QLabel("Выберите номер дела:"))
         layout.addWidget(self.case_numbers_combobox)
-        layout.addWidget(QLabel("Комментарий:"))  # Перемещение комментария на последнее место
+        layout.addWidget(QLabel("Комментарий:"))
         layout.addWidget(self.proforma_comment_input)
 
         self.add_proforma_button = QPushButton("Добавить проформу")
@@ -130,7 +123,25 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.delete_proforma_button)
 
         self.proforma_numbers_tab.setLayout(layout)
-        self.load_proforma_table_data()  # Загрузка данных проформ при инициализации
+        self.load_proforma_table_data()
+
+    def add_new_case(self):
+        name = self.name_input.currentText().strip()
+        customer = self.customer_input.currentText().strip()
+        comment = self.comment_input.text().strip()
+
+        if name:
+            try:
+                case_id = str(self.initial_case_id + len(firebase_manager.get_all_cases()))
+                firebase_manager.add_case(case_id, name, customer, comment)
+                self.load_case_table_data()
+                self.name_input.setCurrentIndex(-1)
+                self.customer_input.setCurrentIndex(-1)
+                self.comment_input.clear()
+            except Exception as e:
+                QMessageBox.critical(self, "Ошибка", str(e))
+        else:
+            QMessageBox.warning(self, "Ошибка ввода", "Поле 'Имя' должно быть заполнено.")
 
     def add_proforma_number(self):
         try:
@@ -139,13 +150,7 @@ class MainWindow(QMainWindow):
             comment = self.proforma_comment_input.text()
             proforma_number = self.generate_proforma_number()
 
-            firebase_manager.add_proforma(proforma_number, {
-                'case_number': case_number,
-                'name': name,
-                'proforma_number': proforma_number,
-                'comment': comment,
-                'creation_date': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            })
+            firebase_manager.add_proforma(case_number, name, proforma_number, comment)
 
             # Обновите ваш GUI здесь
 
@@ -208,29 +213,6 @@ class MainWindow(QMainWindow):
                 self.proforma_table.setItem(row_position, 2, QTableWidgetItem(proforma['proforma_number']))
                 self.proforma_table.setItem(row_position, 3, QTableWidgetItem(proforma['comment']))
 
-    def add_new_case(self):
-        name = self.name_input.currentText().strip()
-        customer = self.customer_input.currentText().strip()
-        comment = self.comment_input.text().strip()
-
-        if name:
-            try:
-                case_id = str(self.initial_case_id + len(firebase_manager.get_all_cases()))
-                firebase_manager.add_case(case_id, {
-                    'name': name,
-                    'customer': customer,
-                    'comment': comment,
-                    'creation_date': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                })
-                self.load_case_table_data()
-                self.name_input.setCurrentIndex(-1)
-                self.customer_input.setCurrentIndex(-1)
-                self.comment_input.clear()
-            except Exception as e:
-                QMessageBox.critical(self, "Ошибка", str(e))
-        else:
-            QMessageBox.warning(self, "Ошибка ввода", "Поле 'Имя' должно быть заполнено.")
-
     def confirm_delete_case(self):
         selected_row = self.case_table.currentRow()
         if selected_row != -1:
@@ -242,7 +224,7 @@ class MainWindow(QMainWindow):
                 QMessageBox.No,
             )
             if reply == QMessageBox.Yes:
-                case_id = self.case_table.item(selected_row, 0).text()
+                case_id = self.case_table.item(selected_row, 4).text()
                 firebase_manager.delete_case(case_id)
                 self.load_case_table_data()
 
@@ -275,7 +257,6 @@ class MainWindow(QMainWindow):
         cases = firebase_manager.get_all_cases()
         names = [case['name'] for case in cases.values()]
         self.name_input.addItems(names)
-
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
