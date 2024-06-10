@@ -10,7 +10,7 @@ print("Определение пути к файлу учетных данных
 if platform.system() == "Windows":
     cred_path = r'C:\\Users\\Usr\\Documents\\Polarpor_DB_win\\polapordb-firebase-adminsdk-5hp8q-9a328b73d0.json'
 else:
-    cred_path = '/Users/sk/Documents/EDU_Python/PPT_BD/polapordb-firebase-adminsdk-5hp8q-9a328b73d0.json'
+    cred_path = '/Users/sk/Documents/EDU_Python/PPT_BD/Polarpor_DB_win_clean/polapordb-firebase-adminsdk-5hp8q-9a328b73d0.json'
 
 print(f"Путь к файлу учетных данных: {cred_path}")
 
@@ -28,40 +28,53 @@ firebase_admin.initialize_app(cred, {
 
 print("Firebase инициализирован. Создание класса FirebaseManager...")
 
+
 # Класс для работы с Firebase Realtime Database
 class FirebaseManager:
     def __init__(self):
-        self.ref_cases = db.reference('cases')
-        self.ref_proformas = db.reference('proformas')  # Добавлено для проформ
+        self.ref = db.reference('cases')
+        self.proforma_ref = db.reference('proformas')
+        self.users_ref = db.reference('users')
 
-    def add_case(self, case_id, data):
-        print(f"Добавление дела: case_id={case_id}, data={data}")
-        self.ref_cases.child(case_id).set(data)
+    def add_case(self, case_id, name, customer, comment):
+        print(f"Добавление дела: case_id={case_id}, name={name}, customer={customer}, comment={comment}")
+        creation_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.ref.child(case_id).set({
+            'name': name,
+            'customer': customer,
+            'comment': comment,
+            'creation_date': creation_date
+        })
         print(f"Дело {case_id} добавлено успешно.")
 
-    def add_proforma(self, proforma_number, data):
-        print(f"Добавление проформы: proforma_number={proforma_number}, data={data}")
-        self.ref_proformas.child(proforma_number).set(data)
+    def add_proforma(self, case_number, name, proforma_number, comment):
+        creation_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.proforma_ref.child(proforma_number).set({
+            'case_number': case_number,
+            'name': name,
+            'proforma_number': proforma_number,
+            'comment': comment,
+            'creation_date': creation_date
+        })
         print(f"Проформа {proforma_number} добавлена успешно.")
 
     def get_all_cases(self):
         print("Получение всех дел...")
-        cases = self.ref_cases.get()
-        return cases if cases else {}
+        return self.ref.get()
 
     def get_all_proformas(self):
         print("Получение всех проформ...")
-        proformas = self.ref_proformas.get()
-        return proformas if proformas else {}
+        return self.proforma_ref.get()
 
     def delete_case(self, case_id):
         print(f"Удаление дела: case_id={case_id}")
-        self.ref_cases.child(case_id).delete()
+        self.ref.child(case_id).delete()
         print(f"Дело {case_id} удалено успешно.")
 
     def delete_proforma(self, proforma_id):
         print(f"Удаление проформы: proforma_id={proforma_id}")
-        self.ref_proformas.child(proforma_id).delete()
+        self.proforma_ref.child(proforma_id).delete()
         print(f"Проформа {proforma_id} удалена успешно.")
+
 
 print("Класс FirebaseManager создан.")

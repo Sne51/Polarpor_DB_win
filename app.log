@@ -1,11 +1,1 @@
 urllib3.util.retry - DEBUG - Converted retries value: 3 -> Retry(total=3, connect=None, read=None, redirect=None, status=None)
-google.auth.transport.requests - DEBUG - Making request: POST https://oauth2.googleapis.com/token
-urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): oauth2.googleapis.com:443
-urllib3.connectionpool - DEBUG - https://oauth2.googleapis.com:443 "POST /token HTTP/1.1" 200 None
-urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): polapordb-default-rtdb.asia-southeast1.firebasedatabase.app:443
-urllib3.connectionpool - DEBUG - https://polapordb-default-rtdb.asia-southeast1.firebasedatabase.app:443 "GET /cases.json HTTP/1.1" 200 522
-urllib3.connectionpool - DEBUG - https://polapordb-default-rtdb.asia-southeast1.firebasedatabase.app:443 "GET /cases.json HTTP/1.1" 200 522
-urllib3.connectionpool - DEBUG - https://polapordb-default-rtdb.asia-southeast1.firebasedatabase.app:443 "GET /cases.json HTTP/1.1" 200 522
-urllib3.connectionpool - DEBUG - https://polapordb-default-rtdb.asia-southeast1.firebasedatabase.app:443 "GET /cases.json HTTP/1.1" 200 522
-urllib3.connectionpool - DEBUG - https://polapordb-default-rtdb.asia-southeast1.firebasedatabase.app:443 "GET /cases.json HTTP/1.1" 200 522
-urllib3.connectionpool - DEBUG - https://polapordb-default-rtdb.asia-southeast1.firebasedatabase.app:443 "GET /proformas.json HTTP/1.1" 200 122

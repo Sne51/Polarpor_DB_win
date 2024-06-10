@@ -1,4 +1,4 @@
-#!/Users/sk/Documents/EDU_Python/PPT_BD/venv/bin/python3.11
+#!/Users/sk/Documents/EDU_Python/PPT_BD/Polarpor_DB_win_clean/venv/bin/python3.12
 # -*- coding: utf-8 -*-
 # Copyright 2024 Google LLC
 #
