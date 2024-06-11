@@ -1,4 +1,6 @@
-from PyQt5.QtWidgets import QDialog, QVBoxLayout, QLineEdit, QPushButton, QLabel
+from PyQt5.QtWidgets import QDialog, QVBoxLayout, QLineEdit, QPushButton, QLabel, QMessageBox
+import json
+import logging
 
 
 class LoginWindow(QDialog):
@@ -26,8 +28,26 @@ class LoginWindow(QDialog):
 
         self.setLayout(layout)
 
+        self.load_users()
+
+    def load_users(self):
+        try:
+            with open('users.json', 'r') as file:
+                self.users = json.load(file)["users"]
+                logging.debug(f"Users loaded: {self.users}")
+        except Exception as e:
+            logging.error(f"Error loading users: {str(e)}")
+            QMessageBox.critical(self, "Error", f"Error loading users: {str(e)}")
+            self.users = []
+
     def handle_login(self):
-        if self.username_input.text() == "admin" and self.password_input.text() == "password":
-            self.accept()
-        else:
-            QMessageBox.warning(self, "Error", "Incorrect username or password")
+        username = self.username_input.text()
+        password = self.password_input.text()
+        logging.debug(f"Attempting login with username: {username}, password: {password}")
+        for user in self.users:
+            if user["username"] == username and user["password"] == password:
+                logging.info("Login successful")
+                self.accept()
+                return
+        logging.warning("Incorrect username or password")
+        QMessageBox.warning(self, "Error", "Incorrect username or password")

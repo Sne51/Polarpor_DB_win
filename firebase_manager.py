@@ -36,9 +36,8 @@ class FirebaseManager:
         self.proforma_ref = db.reference('proformas')
         self.users_ref = db.reference('users')
 
-    def add_case(self, case_id, name, customer, comment):
+    def add_case(self, case_id, name, customer, comment, creation_date):
         print(f"Добавление дела: case_id={case_id}, name={name}, customer={customer}, comment={comment}")
-        creation_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         self.ref.child(case_id).set({
             'name': name,
             'customer': customer,
