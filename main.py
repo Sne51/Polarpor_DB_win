@@ -9,9 +9,14 @@ from PyQt5.QtGui import QPixmap
 from splash_screen import SplashScreen
 from firebase_manager import FirebaseManager
 from login_window import LoginWindow
+import platform
 
 # Установка пути для плагинов Qt
-plugin_path = "/Users/sk/Documents/EDU_Python/PPT_BD/Polarpor_DB_win_clean/venv/lib/python3.12/site-packages/PyQt5/Qt5/plugins"
+if platform.system() == "Windows":
+    plugin_path = r"C:\Users\Usr\Documents\Polarpor_DB_win\Polarpor_DB_win\venv\Lib\site-packages\PyQt5\Qt\plugins"
+else:
+    plugin_path = "/Users/sk/Documents/EDU_Python/PPT_BD/Polarpor_DB_win_clean/venv/lib/python3.12/site-packages/PyQt5/Qt5/plugins"
+
 os.environ['QT_QPA_PLATFORM_PLUGIN_PATH'] = plugin_path
 
 # Проверка установки пути

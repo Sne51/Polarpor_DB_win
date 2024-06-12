@@ -1,26 +1,24 @@
-2024-06-12 19:08:43,437 - urllib3.util.retry - DEBUG - Converted retries value: 3 -> Retry(total=3, connect=None, read=None, redirect=None, status=None)
-2024-06-12 19:08:43,437 - root - INFO - Firebase initialized successfully
-2024-06-12 19:08:43,597 - root - DEBUG - Users loaded: [{'username': 'admin', 'password': 'password'}, {'username': 'user1', 'password': 'password1'}, {'username': 'user2', 'password': 'password2'}]
-2024-06-12 19:08:54,838 - root - DEBUG - Attempting login with username: user1, password: password2
-2024-06-12 19:08:54,838 - root - WARNING - Incorrect username or password
-2024-06-12 19:08:58,141 - root - DEBUG - Attempting login with username: user1, password: password1
-2024-06-12 19:08:58,141 - root - INFO - Login successful
-2024-06-12 19:08:58,240 - root - INFO - Setting up case numbers tab
-2024-06-12 19:08:58,247 - root - INFO - Loading case table data
-2024-06-12 19:08:58,252 - google.auth.transport.requests - DEBUG - Making request: POST https://oauth2.googleapis.com/token
-2024-06-12 19:08:58,255 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): oauth2.googleapis.com:443
-2024-06-12 19:08:58,507 - urllib3.connectionpool - DEBUG - https://oauth2.googleapis.com:443 "POST /token HTTP/1.1" 200 None
-2024-06-12 19:08:58,510 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): polapordb-default-rtdb.asia-southeast1.firebasedatabase.app:443
-2024-06-12 19:08:59,468 - urllib3.connectionpool - DEBUG - https://polapordb-default-rtdb.asia-southeast1.firebasedatabase.app:443 "GET /cases.json HTTP/1.1" 200 522
-2024-06-12 19:08:59,469 - root - DEBUG - Cases retrieved: {'47000': {'comment': 'Комментарий', 'creation_date': '2024-05-30 20:42:35', 'customer': 'Заказчик', 'name': 'Имя'}, '47001': {'comment': '', 'creation_date': '2024-06-01 23:26:16', 'customer': 'customer', 'name': 'Igor'}, '47002': {'comment': '', 'creation_date': '2024-06-02 22:01:01', 'customer': 'customer', 'name': 'Igor'}, '47003': {'comment': '', 'creation_date': '2024-06-01 23:32:06', 'customer': 'customer', 'name': 'Igor'}, '47004': {'comment': '', 'creation_date': '2024-06-01 23:32:21', 'customer': 'СКФ', 'name': 'Антон'}}
-2024-06-12 19:08:59,470 - root - INFO - Case table data loaded
-2024-06-12 19:08:59,889 - urllib3.connectionpool - DEBUG - https://polapordb-default-rtdb.asia-southeast1.firebasedatabase.app:443 "GET /cases.json HTTP/1.1" 200 522
-2024-06-12 19:08:59,892 - root - INFO - Customers populated successfully
-2024-06-12 19:09:00,289 - urllib3.connectionpool - DEBUG - https://polapordb-default-rtdb.asia-southeast1.firebasedatabase.app:443 "GET /cases.json HTTP/1.1" 200 522
-2024-06-12 19:09:00,291 - root - INFO - Names populated successfully
-2024-06-12 19:09:00,291 - root - INFO - Case numbers tab setup completed
-2024-06-12 19:09:00,691 - urllib3.connectionpool - DEBUG - https://polapordb-default-rtdb.asia-southeast1.firebasedatabase.app:443 "GET /cases.json HTTP/1.1" 200 522
-2024-06-12 19:09:00,692 - root - INFO - Names combobox populated with unique names successfully
-2024-06-12 19:09:01,168 - urllib3.connectionpool - DEBUG - https://polapordb-default-rtdb.asia-southeast1.firebasedatabase.app:443 "GET /cases.json HTTP/1.1" 200 522
-2024-06-12 19:09:01,774 - urllib3.connectionpool - DEBUG - https://polapordb-default-rtdb.asia-southeast1.firebasedatabase.app:443 "GET /proformas.json HTTP/1.1" 200 249
-2024-06-12 19:09:01,795 - root - INFO - Application started successfully
+2024-06-12 20:22:01,594 - urllib3.util.retry - DEBUG - Converted retries value: 3 -> Retry(total=3, connect=None, read=None, redirect=None, status=None)
+2024-06-12 20:22:01,595 - root - INFO - Firebase initialized successfully
+2024-06-12 20:22:01,752 - root - DEBUG - Users loaded: [{'username': 'admin', 'password': 'password'}, {'username': 'user1', 'password': 'password1'}, {'username': 'user2', 'password': 'password2'}]
+2024-06-12 20:22:08,369 - root - DEBUG - Attempting login with username: user1, password: password1
+2024-06-12 20:22:08,370 - root - INFO - Login successful
+2024-06-12 20:22:08,453 - root - INFO - Setting up case numbers tab
+2024-06-12 20:22:08,458 - root - INFO - Loading case table data
+2024-06-12 20:22:08,463 - google.auth.transport.requests - DEBUG - Making request: POST https://oauth2.googleapis.com/token
+2024-06-12 20:22:08,465 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): oauth2.googleapis.com:443
+2024-06-12 20:22:08,824 - urllib3.connectionpool - DEBUG - https://oauth2.googleapis.com:443 "POST /token HTTP/1.1" 200 None
+2024-06-12 20:22:08,828 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): polapordb-default-rtdb.asia-southeast1.firebasedatabase.app:443
+2024-06-12 20:22:10,151 - urllib3.connectionpool - DEBUG - https://polapordb-default-rtdb.asia-southeast1.firebasedatabase.app:443 "GET /cases.json HTTP/1.1" 200 522
+2024-06-12 20:22:10,152 - root - DEBUG - Cases retrieved: {'47000': {'comment': 'Комментарий', 'creation_date': '2024-05-30 20:42:35', 'customer': 'Заказчик', 'name': 'Имя'}, '47001': {'comment': '', 'creation_date': '2024-06-01 23:26:16', 'customer': 'customer', 'name': 'Igor'}, '47002': {'comment': '', 'creation_date': '2024-06-02 22:01:01', 'customer': 'customer', 'name': 'Igor'}, '47003': {'comment': '', 'creation_date': '2024-06-01 23:32:06', 'customer': 'customer', 'name': 'Igor'}, '47004': {'comment': '', 'creation_date': '2024-06-01 23:32:21', 'customer': 'СКФ', 'name': 'Антон'}}
+2024-06-12 20:22:10,153 - root - INFO - Case table data loaded
+2024-06-12 20:22:10,715 - urllib3.connectionpool - DEBUG - https://polapordb-default-rtdb.asia-southeast1.firebasedatabase.app:443 "GET /cases.json HTTP/1.1" 200 522
+2024-06-12 20:22:10,719 - root - INFO - Customers populated successfully
+2024-06-12 20:22:11,127 - urllib3.connectionpool - DEBUG - https://polapordb-default-rtdb.asia-southeast1.firebasedatabase.app:443 "GET /cases.json HTTP/1.1" 200 522
+2024-06-12 20:22:11,129 - root - INFO - Names populated successfully
+2024-06-12 20:22:11,129 - root - INFO - Case numbers tab setup completed
+2024-06-12 20:22:11,686 - urllib3.connectionpool - DEBUG - https://polapordb-default-rtdb.asia-southeast1.firebasedatabase.app:443 "GET /cases.json HTTP/1.1" 200 522
+2024-06-12 20:22:11,688 - root - INFO - Names combobox populated with unique names successfully
+2024-06-12 20:22:12,301 - urllib3.connectionpool - DEBUG - https://polapordb-default-rtdb.asia-southeast1.firebasedatabase.app:443 "GET /cases.json HTTP/1.1" 200 522
+2024-06-12 20:22:12,699 - urllib3.connectionpool - DEBUG - https://polapordb-default-rtdb.asia-southeast1.firebasedatabase.app:443 "GET /proformas.json HTTP/1.1" 200 249
+2024-06-12 20:22:12,720 - root - INFO - Application started successfully
