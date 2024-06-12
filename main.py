@@ -138,6 +138,24 @@ class MainWindow(QMainWindow):
         except Exception as e:
             logging.error(f"Error setting up case numbers tab: {str(e)}")
 
+    def populate_names(self):
+        try:
+            cases = firebase_manager.get_all_cases()
+            names = list(set(case['name'] for case in cases.values()))
+            self.name_input.addItems(names)
+            logging.info("Names populated successfully")
+        except Exception as e:
+            logging.error(f"Error populating names: {str(e)}")
+
+    def populate_customers(self):
+        try:
+            cases = firebase_manager.get_all_cases()
+            customers = list(set(case['customer'] for case in cases.values()))
+            self.customer_input.addItems(customers)
+            logging.info("Customers populated successfully")
+        except Exception as e:
+            logging.error(f"Error populating customers: {str(e)}")
+
     def load_case_table_data(self):
         try:
             logging.info("Loading case table data")
@@ -170,6 +188,11 @@ class MainWindow(QMainWindow):
             self.proforma_table = QTableWidget()
             self.proforma_table.setColumnCount(4)
             self.proforma_table.setHorizontalHeaderLabels(["Номер дела", "Имя", "Номер проформы", "Комментарий"])
+
+            # Устанавливаем растягивание колонок
+            header = self.proforma_table.horizontalHeader()
+            header.setSectionResizeMode(QHeaderView.Stretch)
+            header.setStretchLastSection(True)
 
             self.names_combobox = QComboBox()
             self.case_numbers_combobox = QComboBox()
@@ -221,8 +244,9 @@ class MainWindow(QMainWindow):
     def populate_names_combobox(self):
         try:
             cases = firebase_manager.get_all_cases()
-            names = [case['name'] for case in cases.values()]
-            self.names_combobox.addItems(names)
+            unique_names = list(set(case['name'] for case in cases.values()))
+            self.names_combobox.addItems(unique_names)
+            logging.info("Names combobox populated with unique names successfully")
         except Exception as e:
             logging.error(f"Error populating names combobox: {str(e)}")
 
@@ -306,17 +330,18 @@ class MainWindow(QMainWindow):
             logging.error(f"Error getting last proforma number: {str(e)}")
             return None
 
+
 def main():
     app = QApplication(sys.argv)
 
-    splash = SplashScreen()
-    splash.show()
-
     login = LoginWindow()
     if login.exec_() == QDialog.Accepted:
+        splash = SplashScreen()
+        splash.show()
+
         window = MainWindow()
+        QTimer.singleShot(1500, lambda: splash.finish(window))  # Задержка для демонстрации SplashScreen
         window.show()
-        splash.finish(window)
         logging.info("Application started successfully")
 
         sys.exit(app.exec_())
@@ -326,5 +351,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
