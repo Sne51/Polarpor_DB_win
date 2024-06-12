@@ -8,7 +8,7 @@ print("Определение пути к файлу учетных данных
 
 # Определяем путь к файлу учетных данных в зависимости от операционной системы
 if platform.system() == "Windows":
-    cred_path = r'C:\\Users\\Usr\\Documents\\Polarpor_DB_win\\polapordb-firebase-adminsdk-5hp8q-9a328b73d0.json'
+    cred_path = r'C:\\Users\\Usr\\Documents\\Polarpor_DB_win\\Polarpor_DB_win\\polapordb-firebase-adminsdk-5hp8q-9a328b73d0.json'
 else:
     cred_path = '/Users/sk/Documents/EDU_Python/PPT_BD/Polarpor_DB_win_clean/polapordb-firebase-adminsdk-5hp8q-9a328b73d0.json'
 
