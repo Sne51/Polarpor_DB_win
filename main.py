@@ -4,12 +4,12 @@ import os
 import logging
 from datetime import datetime
 from PyQt5.QtWidgets import QApplication, QMainWindow, QDialog, QSplashScreen, QTabWidget, QWidget, QVBoxLayout, QComboBox, QLineEdit, QLabel, QPushButton, QTableWidget, QTableWidgetItem, QHeaderView, QMessageBox
-from PyQt5.QtCore import Qt, QTimer
-from PyQt5.QtGui import QPixmap
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QPixmap, QFont
 from splash_screen import SplashScreen
 from firebase_manager import FirebaseManager
 from login_window import LoginWindow
-import platform
+import platform 
 
 # Установка пути для плагинов Qt
 if platform.system() == "Windows":
@@ -25,9 +25,20 @@ if not os.path.isdir(plugin_path):
     sys.exit(1)
 else:
     print(f"Путь к плагинам Qt установлен: {plugin_path}")
+
 # Настройка логирования
 logging.basicConfig(level=logging.DEBUG, filename='app.log', filemode='w',
-                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+                    format='%(asctime)s - %(name)s - %(levellevel)s - %(message)s')
+
+# Функции для поддержки высокого DPI и установки шрифта
+def apply_high_dpi_scaling():
+    QApplication.setAttribute(Qt.AA_EnableHighDpiScaling)
+    QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps)
+
+def set_default_font():
+    font = QFont()
+    font.setPointSize(12)  # Установите желаемый размер шрифта
+    QApplication.setFont(font)
 
 # Инициализация Firebase
 try:
@@ -142,23 +153,21 @@ class MainWindow(QMainWindow):
         except Exception as e:
             logging.error(f"Error setting up case numbers tab: {str(e)}")
 
-    def populate_names(self):
-        try:
-            cases = firebase_manager.get_all_cases()
-            names = list(set(case['name'] for case in cases.values()))
-            self.name_input.addItems(names)
-            logging.info("Names populated successfully")
-        except Exception as e:
-            logging.error(f"Error populating names: {str(e)}")
-
     def populate_customers(self):
         try:
             cases = firebase_manager.get_all_cases()
-            customers = list(set(case['customer'] for case in cases.values()))
+            customers = list(set([case['customer'] for case in cases.values()]))
             self.customer_input.addItems(customers)
-            logging.info("Customers populated successfully")
         except Exception as e:
-            logging.error(f"Error populating customers: {str(e)}")
+            logging.error(f"Error populating customers combobox: {str(e)}")
+
+    def populate_names(self):
+        try:
+            cases = firebase_manager.get_all_cases()
+            names = list(set([case['name'] for case in cases.values()]))
+            self.name_input.addItems(names)
+        except Exception as e:
+            logging.error(f"Error populating names combobox: {str(e)}")
 
     def load_case_table_data(self):
         try:
@@ -192,11 +201,7 @@ class MainWindow(QMainWindow):
             self.proforma_table = QTableWidget()
             self.proforma_table.setColumnCount(4)
             self.proforma_table.setHorizontalHeaderLabels(["Номер дела", "Имя", "Номер проформы", "Комментарий"])
-
-            # Устанавливаем растягивание колонок
-            header = self.proforma_table.horizontalHeader()
-            header.setSectionResizeMode(QHeaderView.Stretch)
-            header.setStretchLastSection(True)
+            self.proforma_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
 
             self.names_combobox = QComboBox()
             self.case_numbers_combobox = QComboBox()
@@ -248,17 +253,16 @@ class MainWindow(QMainWindow):
     def populate_names_combobox(self):
         try:
             cases = firebase_manager.get_all_cases()
-            unique_names = list(set(case['name'] for case in cases.values()))
-            self.names_combobox.addItems(unique_names)
-            logging.info("Names combobox populated with unique names successfully")
+            names = list(set([case['name'] for case in cases.values()]))
+            self.names_combobox.addItems(names)
         except Exception as e:
             logging.error(f"Error populating names combobox: {str(e)}")
 
     def populate_case_numbers_combobox(self):
         try:
             cases = firebase_manager.get_all_cases()
-            for case_id, case in cases.items():
-                self.case_numbers_combobox.addItem(case_id)
+            case_numbers = list(set([case_id for case_id in cases.keys()]))
+            self.case_numbers_combobox.addItems(case_numbers)
         except Exception as e:
             logging.error(f"Error populating case numbers combobox: {str(e)}")
 
@@ -336,18 +340,19 @@ class MainWindow(QMainWindow):
 
 
 def main():
+    apply_high_dpi_scaling()
     app = QApplication(sys.argv)
+    set_default_font()
+
+    splash = SplashScreen()
+    splash.show()
 
     login = LoginWindow()
     if login.exec_() == QDialog.Accepted:
-        splash = SplashScreen()
-        splash.show()
-
+        splash.finish(login)
         window = MainWindow()
-        QTimer.singleShot(1500, lambda: splash.finish(window))  # Задержка для демонстрации SplashScreen
         window.show()
         logging.info("Application started successfully")
-
         sys.exit(app.exec_())
     else:
         logging.info("Login failed or was cancelled")
