@@ -13,7 +13,7 @@ import platform
 
 # Установка пути для плагинов Qt
 if platform.system() == "Windows":
-    plugin_path = r"C:\Users\Usr\Documents\Polarpor_DB_win\Polarpor_DB_win\venv\Lib\site-packages\PyQt5\Qt\plugins"
+    plugin_path = r"C:\Users\Usr\Documents\Polarpor_DB_win\Polarpor_DB_win\venv\Lib\site-packages\PyQt5\Qt5\plugins"
 else:
     plugin_path = "/Users/sk/Documents/EDU_Python/PPT_BD/Polarpor_DB_win_clean/venv/lib/python3.12/site-packages/PyQt5/Qt5/plugins"
 
@@ -25,7 +25,6 @@ if not os.path.isdir(plugin_path):
     sys.exit(1)
 else:
     print(f"Путь к плагинам Qt установлен: {plugin_path}")
-
 # Настройка логирования
 logging.basicConfig(level=logging.DEBUG, filename='app.log', filemode='w',
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
