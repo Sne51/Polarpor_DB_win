@@ -2,6 +2,51 @@ import firebase_admin
 from firebase_admin import credentials, db
 import os
 import platform
+import sys
+from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QLineEdit, QPushButton, QMessageBox
+from database import DatabaseManager
+
+
+class AddUserWindow(QWidget):
+    def __init__(self):
+        super().__init__()
+
+        self.db = DatabaseManager()
+
+        self.initUI()
+
+    def initUI(self):
+        self.setWindowTitle('Add Client')
+
+        layout = QVBoxLayout()
+
+        self.client_id_input = QLineEdit(self)
+        self.client_id_input.setPlaceholderText('Enter Client ID')
+        layout.addWidget(self.client_id_input)
+
+        self.add_button = QPushButton('Add Client', self)
+        self.add_button.clicked.connect(self.add_client)
+        layout.addWidget(self.add_button)
+
+        self.setLayout(layout)
+
+    def add_client(self):
+        client_id = self.client_id_input.text()
+        if client_id:
+            client_data = {'client_id': client_id}
+            if self.db.add_client(client_data):
+                QMessageBox.information(self, 'Success', 'Client added successfully!')
+            else:
+                QMessageBox.warning(self, 'Error', 'Client already exists!')
+        else:
+            QMessageBox.warning(self, 'Error', 'Client ID cannot be empty!')
+
+
+if __name__ == '__main__':
+    app = QApplication(sys.argv)
+    window = AddUserWindow()
+    window.show()
+    sys.exit(app.exec_())
 
 # Определение пути к файлу учетных данных в зависимости от операционной системы
 if platform.system() == "Windows":

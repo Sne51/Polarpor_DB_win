@@ -3,9 +3,38 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, scoped_session, relationship
 from contextlib import contextmanager
 import datetime
+import firebase_admin
+from firebase_admin import credentials, firestore
 
 # Определение базовой модели
 Base = declarative_base()
+
+
+class DatabaseManager:
+    def __init__(self):
+        cred = credentials.Certificate("path/to/your/polapordb-firebase-adminsdk-5hp8q-9a328b73d0.json")
+        firebase_admin.initialize_app(cred)
+        self.db = firestore.client()
+
+    def add_client(self, client_data):
+        clients_ref = self.db.collection('clients')
+        existing_client = clients_ref.where('client_id', '==', client_data['client_id']).get()
+
+        if existing_client:
+            print("Client already exists!")
+            return False
+        else:
+            clients_ref.add(client_data)
+            print("Client added successfully!")
+            return True
+
+    def get_clients(self, limit=10):
+        clients_ref = self.db.collection('clients').limit(limit)
+        return [client.to_dict() for client in clients_ref.stream()]
+
+    def get_all_clients(self):
+        clients_ref = self.db.collection('clients')
+        return [client.to_dict() for client in clients_ref.stream()]
 
 
 # Модель для хранения информации о заказчиках

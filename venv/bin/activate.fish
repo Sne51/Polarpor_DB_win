@@ -33,7 +33,7 @@ end
 # Unset irrelevant variables.
 deactivate nondestructive
 
-set -gx VIRTUAL_ENV "/Users/sk/Documents/EDU_Python/PPT_BD/Polarpor_DB_win_clean/venv"
+set -gx VIRTUAL_ENV "/Users/sk/Documents/EDU_Python/PPT_do_quick/venv"
 
 set -gx _OLD_VIRTUAL_PATH $PATH
 set -gx PATH "$VIRTUAL_ENV/bin" $PATH

@@ -13,7 +13,7 @@ class SplashScreen(QSplashScreen):
         splash_width = width // 3
         splash_height = height // 3
 
-        pixmap = QPixmap("/Users/sk/Documents/EDU_Python/PPT_BD/Polarpor_DB_win_clean/media/splash_screen_1.png")
+        pixmap = QPixmap("/Users/sk/Documents/EDU_Python/PPT_do_quick/media/splash_screen_1.png")
         pixmap = pixmap.scaled(splash_width, splash_height, Qt.KeepAspectRatio)
 
         super().__init__(pixmap)
