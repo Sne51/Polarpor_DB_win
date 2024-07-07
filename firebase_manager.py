@@ -1,103 +1,78 @@
-import firebase_admin
-from firebase_admin import credentials, db
 import logging
+from firebase_admin import credentials, initialize_app, db
 import os
-import platform
 
 class FirebaseManager:
     def __init__(self):
-        try:
-            if platform.system() == "Windows":
-                cred_path = "C:/Users/Usr/Documents/Polarpor_DB_win/polapordb-firebase-adminsdk-5hp8q-9a328b73d0.json"
-            else:
-                cred_path = "/Users/sk/Documents/EDU_Python/PPT_do_quick/polapordb-firebase-adminsdk-5hp8q-9a328b73d0.json"
+        cred_path_mac = "/Users/sk/Documents/EDU_Python/PPT_do_quick/polapordb-firebase-adminsdk-5hp8q-9a328b73d0.json"
+        cred_path_win = "C:/Users/Usr/Documents/Polarpor_DB_win/Polarpor_DB_win/polapordb-firebase-adminsdk-5hp8q-9a328b73d0.json"
 
-            cred = credentials.Certificate(cred_path)
-            firebase_admin.initialize_app(cred, {
-                'databaseURL': 'https://polapordb-default-rtdb.asia-southeast1.firebasedatabase.app/'
-            })
-            self.cases_ref = db.reference('cases')
-            self.proformas_ref = db.reference('proformas')
-            self.clients_ref = db.reference('clients')
-            logging.info("Firebase initialized successfully")
-        except Exception as e:
-            logging.error(f"Error initializing Firebase: {e}")
+        if os.path.exists(cred_path_mac):
+            cred = credentials.Certificate(cred_path_mac)
+        elif os.path.exists(cred_path_win):
+            cred = credentials.Certificate(cred_path_win)
+        else:
+            raise FileNotFoundError("Firebase credentials file not found.")
 
+        initialize_app(cred, {
+            'databaseURL': 'https://polapordb-default-rtdb.asia-southeast1.firebasedatabase.app/'
+        })
+        self.cases_ref = db.reference('cases')
+        self.clients_ref = db.reference('clients')
+        self.proformas_ref = db.reference('proformas')
+    
     def get_all_cases(self):
-        try:q
-            return self.cases_ref.get() or {}
-        except Exception as e:
-            logging.error(f"Error retrieving cases: {e}")
-            return {}
-
-    def add_case(self, case_data):
-        try:
-            self.cases_ref.push(case_data)
-        except Exception as e:
-            logging.error(f"Error adding case: {e}")
-
-    def delete_case(self, case_id):
-        try:
-            self.cases_ref.child(case_id).delete()
-        except Exception as e:
-            logging.error(f"Error deleting case: {e}")
-
-    def get_all_proformas(self):
-        try:
-            return self.proformas_ref.get() or {}
-        except Exception as e:
-            logging.error(f"Error retrieving proformas: {e}")
-            return {}
-
-    def add_proforma(self, proforma_data):
-        try:
-            self.proformas_ref.push(proforma_data)
-        except Exception as e:
-            logging.error(f"Error adding proforma: {e}")
-
-    def delete_proforma(self, proforma_id):
-        try:
-            self.proformas_ref.child(proforma_id).delete()
-        except Exception as e:
-            logging.error(f"Error deleting proforma: {e}")
+        cases = self.cases_ref.get()
+        return cases if cases else {}
 
     def get_all_clients(self):
-        try:
-            clients = self.clients_ref.get()
-            if clients is None:
-                return {}
-            elif isinstance(clients, list):
-                return {str(i): client for i, client in enumerate(clients) if client is not None}
-            else:
-                return clients
-        except Exception as e:
-            logging.error(f"Error retrieving clients: {e}")
-            return {}
+        clients = self.clients_ref.get()
+        return clients if clients else {}
+
+    def get_all_proformas(self):
+        proformas = self.proformas_ref.get()
+        return proformas if proformas else {}
+
+    def add_case(self, case_data):
+        cases = self.cases_ref.get()
+        logging.debug(f"Current cases: {cases}")
+        if not cases:
+            case_id = '47000'
+        else:
+            case_id = str(max([int(cid) for cid in cases.keys() if cid.isdigit()] + [47000]) + 1)
+        self.cases_ref.child(case_id).set(case_data)
+        return case_id
 
     def add_client(self, name):
-        try:
-            clients = self.get_all_clients()
-            if name in [client_data['name'] for client_data in clients.values()]:
-                raise ValueError("Клиент с таким именем уже существует")
-            client_id = max([int(cid) for cid in clients.keys()] or [0]) + 1
-            self.clients_ref.child(str(client_id)).set({'name': name})
-        except Exception as e:
-            logging.error(f"Error adding client: {e}")
+        clients = self.get_all_clients()
+        logging.debug(f"Current clients: {clients}")
+        if isinstance(clients, dict):
+            client_id = str(max([int(cid) for cid in clients.keys()] + [0]) + 1)
+        elif isinstance(clients, list):
+            client_id = str(len(clients) + 1)
+        else:
+            client_id = '1'
+        new_client_data = {'id': client_id, 'name': name}
+        self.clients_ref.child(client_id).set(new_client_data)
+        return client_id
+
+    def delete_case(self, case_id):
+        if case_id:
+            self.cases_ref.child(case_id).delete()
 
     def delete_client(self, client_id):
-        try:
+        if client_id:
             self.clients_ref.child(client_id).delete()
-        except Exception as e:
-            logging.error(f"Error deleting client: {e}")
 
-    def check_and_add_client(self, client_name):
+    def check_and_add_client(self, name):
         clients = self.get_all_clients()
-        for client_id, client_data in clients.items():
-            if client_data['name'] == client_name:
-                return client_id
-        self.add_client(client_name)
-        clients = self.get_all_clients()
-        for client_id, client_data in clients.items():
-            if client_data['name'] == client_name:
-                return client_id
-        raise ValueError("Не удалось добавить клиента")
+        logging.debug(f"Checking and adding client. Current clients: {clients}")
+        if isinstance(clients, dict):
+            for client_id, client_data in clients.items():
+                if client_data['name'] == name:
+                    return client_id
+        elif isinstance(clients, list):
+            for client_data in clients:
+                if client_data and client_data['name'] == name:
+                    return client_data['id']
+        return self.add_client(name)
