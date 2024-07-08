@@ -3,7 +3,7 @@ import json
 import logging
 from PyQt5.QtWidgets import QApplication, QMainWindow, QDialog, QTableWidgetItem, QMessageBox, QSplashScreen, QComboBox, QHeaderView, QLabel, QLineEdit
 from PyQt5.QtCore import Qt, QTimer, QDateTime
-from PyQt5.QtGui import QPixmap
+from PyQt5.QtGui import QPixmap, QScreen
 from PyQt5 import uic
 from firebase_manager import FirebaseManager
 
@@ -55,7 +55,7 @@ class MainWindow(QMainWindow):
         self.load_unique_names()
 
     def setup_proforma_table(self):
-        headers = ["ID", "Имя", "Клиент", "Комментарий", "Дата создания"]
+        headers = ["Номер дела", "Проформа", "Имя", "Клиент", "Комментарий", "Дата создания"]
         self.proformaTable.setColumnCount(len(headers))
         self.proformaTable.setHorizontalHeaderLabels(headers)
         self.proformaTable.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
@@ -104,11 +104,12 @@ class MainWindow(QMainWindow):
             for proforma_id, proforma_data in proformas.items():
                 row_position = self.proformaTable.rowCount()
                 self.proformaTable.insertRow(row_position)
-                self.proformaTable.setItem(row_position, 0, QTableWidgetItem(proforma_id))
-                self.proformaTable.setItem(row_position, 1, QTableWidgetItem(proforma_data.get('name', '')))
-                self.proformaTable.setItem(row_position, 2, QTableWidgetItem(proforma_data.get('client', '')))
-                self.proformaTable.setItem(row_position, 3, QTableWidgetItem(proforma_data.get('comment', '')))
-                self.proformaTable.setItem(row_position, 4, QTableWidgetItem(proforma_data.get('date_created', '')))
+                self.proformaTable.setItem(row_position, 0, QTableWidgetItem(proforma_data.get('case_number', '')))
+                self.proformaTable.setItem(row_position, 1, QTableWidgetItem(proforma_id))
+                self.proformaTable.setItem(row_position, 2, QTableWidgetItem(proforma_data.get('name', '')))
+                self.proformaTable.setItem(row_position, 3, QTableWidgetItem(proforma_data.get('client', '')))
+                self.proformaTable.setItem(row_position, 4, QTableWidgetItem(proforma_data.get('comment', '')))
+                self.proformaTable.setItem(row_position, 5, QTableWidgetItem(proforma_data.get('date_created', '')))
 
         # Load data into combo boxes
         self.proformaNameInput.clear()
@@ -193,18 +194,18 @@ class MainWindow(QMainWindow):
 
     def add_new_proforma(self):
         name = self.proformaNameInput.currentText().strip()
-        client = self.proformaClientInput.currentText().strip()
+        case_number = self.proformaClientInput.currentText().strip()
         comment = self.proformaCommentInput.text().strip()
         date_created = QDateTime.currentDateTime().toString("yyyy-MM-dd HH:mm:ss")
 
-        if not name or not client:
-            QMessageBox.warning(self, "Внимание", "Имя проформы и клиент не могут быть пустыми")
+        if not name or not case_number:
+            QMessageBox.warning(self, "Внимание", "Имя проформы и номер дела не могут быть пустыми")
             return
 
         try:
             new_proforma = {
                 'name': name,
-                'client': client,
+                'case_number': case_number,
                 'comment': comment,
                 'date_created': date_created
             }
@@ -222,7 +223,7 @@ class MainWindow(QMainWindow):
             return
 
         row = selected_items[0].row()
-        proforma_id = self.proformaTable.item(row, 0).text()
+        proforma_id = self.proformaTable.item(row, 1).text()  # Учитывая изменение порядка столбцов
         response = QMessageBox.question(self, "Подтверждение", f"Вы уверены, что хотите удалить проформу с ID {proforma_id}?",
                                         QMessageBox.Yes | QMessageBox.No)
         if response == QMessageBox.Yes:
@@ -285,14 +286,18 @@ if __name__ == "__main__":
     login_dialog = LoginDialog()
     if login_dialog.exec_() == QDialog.Accepted:
         splash_pix = QPixmap('/Users/sk/Documents/EDU_Python/PPT_do_quick/media/splash_screen_1.png')
-        splash_pix = splash_pix.scaled(500, 600, Qt.KeepAspectRatio)
+        splash_pix = splash_pix.scaled(600, 600, Qt.KeepAspectRatio)  # Изменение размера до 600x600
         splash = QSplashScreen(splash_pix, Qt.WindowStaysOnTopHint)
         splash.setMask(splash_pix.mask())
         splash.show()
 
+        # Центрирование SplashScreen на экране
+        center_point = QScreen.availableGeometry(QApplication.primaryScreen()).center()
+        splash.move(center_point.x() - splash.width() // 2, center_point.y() - splash.height() // 2)
+
         QTimer.singleShot(2000, splash.close)
 
         main_window = MainWindow()
-        QTimer.singleShot(2000, main_window.show)
+        main_window.show()
+        splash.finish(main_window)
         sys.exit(app.exec_())
-
