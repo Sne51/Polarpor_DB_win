@@ -2,6 +2,7 @@ import logging
 from firebase_admin import credentials, initialize_app, db
 import os
 
+
 class FirebaseManager:
     def __init__(self):
         cred_path_mac = "/Users/sk/Documents/EDU_Python/PPT_do_quick/polapordb-firebase-adminsdk-5hp8q-9a328b73d0.json"
@@ -20,7 +21,7 @@ class FirebaseManager:
         self.cases_ref = db.reference('cases')
         self.clients_ref = db.reference('clients')
         self.proformas_ref = db.reference('proformas')
-    
+
     def get_all_cases(self):
         cases = self.cases_ref.get()
         return cases if cases else {}

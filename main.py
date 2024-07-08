@@ -195,7 +195,6 @@ class MainWindow(QMainWindow):
         comment = self.proformaCommentInput.text().strip()
         date_created = QDateTime.currentDateTime().toString("yyyy-MM-dd HH:mm:ss")
 
-
         if not name or not client:
             QMessageBox.warning(self, "Внимание", "Имя проформы и клиент не могут быть пустыми")
             return
@@ -277,18 +276,20 @@ class MainWindow(QMainWindow):
             self.caseNameInput.addItems(sorted(unique_names))
         logging.info("Unique names loaded")
 
+
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    
+
     splash_pix = QPixmap('splash_image.png')
     splash = QSplashScreen(splash_pix, Qt.WindowStaysOnTopHint)
     splash.setMask(splash_pix.mask())
     splash.show()
 
     QTimer.singleShot(2000, splash.close)
-    
+
     login_dialog = LoginDialog()
     if login_dialog.exec_() == QDialog.Accepted:
         main_window = MainWindow()
         main_window.show()
         sys.exit(app.exec_())
+
