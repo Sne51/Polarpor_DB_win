@@ -9,6 +9,7 @@ from firebase_manager import FirebaseManager
 
 logging.basicConfig(level=logging.DEBUG)
 
+
 class LoginDialog(QDialog):
     def __init__(self):
         super().__init__()
@@ -25,6 +26,7 @@ class LoginDialog(QDialog):
                 self.accept()
                 return
         QMessageBox.warning(self, 'Ошибка', 'Неверные имя пользователя или пароль')
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -280,16 +282,17 @@ class MainWindow(QMainWindow):
 if __name__ == "__main__":
     app = QApplication(sys.argv)
 
-    splash_pix = QPixmap('splash_image.png')
-    splash = QSplashScreen(splash_pix, Qt.WindowStaysOnTopHint)
-    splash.setMask(splash_pix.mask())
-    splash.show()
-
-    QTimer.singleShot(2000, splash.close)
-
     login_dialog = LoginDialog()
     if login_dialog.exec_() == QDialog.Accepted:
+        splash_pix = QPixmap('/Users/sk/Documents/EDU_Python/PPT_do_quick/media/splash_screen_1.png')
+        splash_pix = splash_pix.scaled(500, 600, Qt.KeepAspectRatio)
+        splash = QSplashScreen(splash_pix, Qt.WindowStaysOnTopHint)
+        splash.setMask(splash_pix.mask())
+        splash.show()
+
+        QTimer.singleShot(2000, splash.close)
+
         main_window = MainWindow()
-        main_window.show()
+        QTimer.singleShot(2000, main_window.show)
         sys.exit(app.exec_())
 
