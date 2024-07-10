@@ -3,7 +3,7 @@ import json
 import logging
 from PyQt5.QtWidgets import QApplication, QMainWindow, QDialog, QTableWidgetItem, QMessageBox, QSplashScreen, QComboBox, QHeaderView, QLabel, QLineEdit
 from PyQt5.QtCore import Qt, QTimer, QDateTime
-from PyQt5.QtGui import QPixmap, QScreen
+from PyQt5.QtGui import QPixmap, QScreen, QColor
 from PyQt5 import uic
 from firebase_manager import FirebaseManager
 
@@ -286,18 +286,32 @@ if __name__ == "__main__":
 
     login_dialog = LoginDialog()
     if login_dialog.exec_() == QDialog.Accepted:
+        # Load the splash screen
         splash_pix = QPixmap('/Users/sk/Documents/EDU_Python/PPT_do_quick/media/splash_screen_1.png')
-        splash_pix = splash_pix.scaled(600, 600, Qt.KeepAspectRatio)  # Изменение размера до 600x600
+        splash_pix = splash_pix.scaled(600, 600, Qt.KeepAspectRatio)
         splash = QSplashScreen(splash_pix, Qt.WindowStaysOnTopHint)
         splash.setMask(splash_pix.mask())
         splash.show()
 
-        # Центрирование SplashScreen на экране
+        # Center the SplashScreen on the screen
         screen_geometry = app.primaryScreen().geometry()
         center_point = screen_geometry.center()
         splash.move(center_point.x() - splash.width() // 2, center_point.y() - splash.height() // 2)
 
-        QTimer.singleShot(2000, splash.close)
+        def update_splash_message(message):
+            splash.showMessage(message, Qt.AlignBottom | Qt.AlignCenter, QColor(Qt.white))
+            app.processEvents()  # Ensure the message is shown immediately
+
+        # Example updates of splash screen messages
+        update_splash_message("Инициализация...")
+        logging.info("Инициализация...")
+        QTimer.singleShot(1000, lambda: update_splash_message("Загрузка данных..."))
+        logging.info("Загрузка данных...")
+        QTimer.singleShot(2000, lambda: update_splash_message("Подготовка интерфейса..."))
+        logging.info("Подготовка интерфейса...")
+
+        # Ensure the splash screen stays for a reasonable time
+        QTimer.singleShot(3000, splash.close)
 
         main_window = MainWindow()
         main_window.show()
