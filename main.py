@@ -14,6 +14,7 @@ class LoginDialog(QDialog):
     def __init__(self):
         super().__init__()
         uic.loadUi("login.ui", self)
+        self.passwordInput.setEchoMode(QLineEdit.Password)
         self.loginButton.clicked.connect(self.check_credentials)
 
     def check_credentials(self):
@@ -292,7 +293,8 @@ if __name__ == "__main__":
         splash.show()
 
         # Центрирование SplashScreen на экране
-        center_point = QScreen.availableGeometry(QApplication.primaryScreen()).center()
+        screen_geometry = app.primaryScreen().geometry()
+        center_point = screen_geometry.center()
         splash.move(center_point.x() - splash.width() // 2, center_point.y() - splash.height() // 2)
 
         QTimer.singleShot(2000, splash.close)
