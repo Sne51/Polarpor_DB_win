@@ -7,264 +7,219 @@
     <x>0</x>
     <y>0</y>
     <width>640</width>
-    <height>511</height>
+    <height>545</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>MainWindow</string>
   </property>
   <widget class="QWidget" name="centralwidget">
-   <widget class="QTabWidget" name="Case_tab">
-    <property name="geometry">
-     <rect>
-      <x>10</x>
-      <y>0</y>
-      <width>621</width>
-      <height>471</height>
-     </rect>
-    </property>
-    <property name="currentIndex">
-     <number>0</number>
-    </property>
-    <widget class="QWidget" name="tab">
-     <attribute name="title">
-      <string>Номера дел</string>
-     </attribute>
-     <widget class="QTableWidget" name="caseTable">
-      <property name="geometry">
-       <rect>
-        <x>0</x>
-        <y>0</y>
-        <width>611</width>
-        <height>261</height>
-       </rect>
+   <layout class="QGridLayout" name="gridLayout_5">
+    <item row="0" column="0">
+     <widget class="QTabWidget" name="Case_tab">
+      <property name="currentIndex">
+       <number>1</number>
       </property>
+      <widget class="QWidget" name="tab">
+       <attribute name="title">
+        <string>Номера дел</string>
+       </attribute>
+       <layout class="QGridLayout" name="gridLayout_4">
+        <item row="0" column="0">
+         <layout class="QGridLayout" name="gridLayout">
+          <item row="0" column="0" colspan="2">
+           <widget class="QTableWidget" name="caseTable"/>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="label_caseName">
+            <property name="text">
+             <string>Выбрать имя</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0">
+           <widget class="QComboBox" name="caseNameInput">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="0">
+           <widget class="QPushButton" name="addCaseButton">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="text">
+             <string>Добавить дело</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="1">
+           <widget class="QPushButton" name="deleteCaseButton">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="text">
+             <string>Удалить дело</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="tab_2">
+       <attribute name="title">
+        <string>Номера проформ</string>
+       </attribute>
+       <layout class="QGridLayout" name="gridLayout_6">
+        <item row="0" column="0">
+         <layout class="QGridLayout" name="gridLayout_2">
+          <item row="0" column="0" colspan="3">
+           <widget class="QTableWidget" name="proformaTable"/>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="label_caseNumber">
+            <property name="text">
+             <string>Номер дела</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QLabel" name="label_proformaName">
+            <property name="text">
+             <string>Имя проформы</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0">
+           <widget class="QComboBox" name="proformaNameInput">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1">
+           <widget class="QComboBox" name="proformaClientInput">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="0">
+           <widget class="QPushButton" name="addProformaButton">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="text">
+             <string>Добавить проформу</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="2">
+           <widget class="QPushButton" name="deleteProformaButton">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="text">
+             <string>Удалить проформу</string>
+            </property>
+           </widget>
+          </item>
+          <item row="4" column="0">
+           <widget class="QLabel" name="label_proformaComment">
+            <property name="text">
+             <string>Комментарии</string>
+            </property>
+           </widget>
+          </item>
+          <item row="5" column="0" colspan="3">
+           <widget class="QLineEdit" name="proformaCommentInput"/>
+          </item>
+         </layout>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="tab_3">
+       <attribute name="title">
+        <string>Клиенты</string>
+       </attribute>
+       <layout class="QGridLayout" name="gridLayout_3">
+        <item row="0" column="0">
+         <layout class="QVBoxLayout" name="verticalLayout">
+          <item>
+           <widget class="QTableWidget" name="clientTable"/>
+          </item>
+          <item>
+           <widget class="QLabel" name="label_clientName">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="text">
+             <string>Имя клиента</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLineEdit" name="clientNameInput"/>
+          </item>
+          <item>
+           <widget class="QPushButton" name="deleteClientButton">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="text">
+             <string>Удалить клиента</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="addClientButton">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="text">
+             <string>Добавить клиента</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+       </layout>
+      </widget>
      </widget>
-     <widget class="QPushButton" name="addCaseButton">
-      <property name="geometry">
-       <rect>
-        <x>20</x>
-        <y>390</y>
-        <width>151</width>
-        <height>41</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string>Добавить дело</string>
-      </property>
-     </widget>
-     <widget class="QPushButton" name="deleteCaseButton">
-      <property name="geometry">
-       <rect>
-        <x>440</x>
-        <y>390</y>
-        <width>151</width>
-        <height>41</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string>Удалить дело</string>
-      </property>
-     </widget>
-     <widget class="QComboBox" name="caseNameInput">
-      <property name="geometry">
-       <rect>
-        <x>10</x>
-        <y>310</y>
-        <width>191</width>
-        <height>32</height>
-       </rect>
-      </property>
-     </widget>
-     <widget class="QLabel" name="label_caseName">
-      <property name="geometry">
-       <rect>
-        <x>20</x>
-        <y>290</y>
-        <width>91</width>
-        <height>16</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string>Выбрать имя</string>
-      </property>
-     </widget>
-    </widget>
-    <widget class="QWidget" name="tab_2">
-     <attribute name="title">
-      <string>Номера проформ</string>
-     </attribute>
-     <widget class="QPushButton" name="addProformaButton">
-      <property name="geometry">
-       <rect>
-        <x>32</x>
-        <y>331</y>
-        <width>151</width>
-        <height>41</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string>Добавить проформу</string>
-      </property>
-     </widget>
-     <widget class="QPushButton" name="deleteProformaButton">
-      <property name="geometry">
-       <rect>
-        <x>430</x>
-        <y>331</y>
-        <width>151</width>
-        <height>41</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string>Удалить проформу</string>
-      </property>
-     </widget>
-     <widget class="QTableWidget" name="proformaTable">
-      <property name="geometry">
-       <rect>
-        <x>0</x>
-        <y>0</y>
-        <width>611</width>
-        <height>261</height>
-       </rect>
-      </property>
-     </widget>
-     <widget class="QComboBox" name="proformaNameInput">
-      <property name="geometry">
-       <rect>
-        <x>25</x>
-        <y>290</y>
-        <width>161</width>
-        <height>32</height>
-       </rect>
-      </property>
-     </widget>
-     <widget class="QComboBox" name="proformaClientInput">
-      <property name="geometry">
-       <rect>
-        <x>205</x>
-        <y>290</y>
-        <width>161</width>
-        <height>32</height>
-       </rect>
-      </property>
-     </widget>
-     <widget class="QLineEdit" name="proformaCommentInput">
-      <property name="geometry">
-       <rect>
-        <x>30</x>
-        <y>400</y>
-        <width>551</width>
-        <height>32</height>
-       </rect>
-      </property>
-     </widget>
-     <widget class="QLabel" name="label_caseNumber">
-      <property name="geometry">
-       <rect>
-        <x>33</x>
-        <y>270</y>
-        <width>80</width>
-        <height>16</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string>Номер дела</string>
-      </property>
-     </widget>
-     <widget class="QLabel" name="label_proformaName">
-      <property name="geometry">
-       <rect>
-        <x>220</x>
-        <y>270</y>
-        <width>80</width>
-        <height>16</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string>Имя проформы</string>
-      </property>
-     </widget>
-     <widget class="QLabel" name="label_proformaComment">
-      <property name="geometry">
-       <rect>
-        <x>33</x>
-        <y>380</y>
-        <width>101</width>
-        <height>16</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string>Комментарии</string>
-      </property>
-     </widget>
-    </widget>
-    <widget class="QWidget" name="tab_3">
-     <attribute name="title">
-      <string>Клиенты</string>
-     </attribute>
-     <widget class="QPushButton" name="addClientButton">
-      <property name="geometry">
-       <rect>
-        <x>20</x>
-        <y>390</y>
-        <width>151</width>
-        <height>41</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string>Добавить клиента</string>
-      </property>
-     </widget>
-     <widget class="QPushButton" name="deleteClientButton">
-      <property name="geometry">
-       <rect>
-        <x>440</x>
-        <y>390</y>
-        <width>151</width>
-        <height>41</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string>Удалить клиента</string>
-      </property>
-     </widget>
-     <widget class="QTableWidget" name="clientTable">
-      <property name="geometry">
-       <rect>
-        <x>0</x>
-        <y>0</y>
-        <width>621</width>
-        <height>311</height>
-       </rect>
-      </property>
-     </widget>
-     <widget class="QLineEdit" name="clientNameInput">
-      <property name="geometry">
-       <rect>
-        <x>20</x>
-        <y>350</y>
-        <width>200</width>
-        <height>32</height>
-       </rect>
-      </property>
-     </widget>
-     <widget class="QLabel" name="label_clientName">
-      <property name="geometry">
-       <rect>
-        <x>20</x>
-        <y>330</y>
-        <width>80</width>
-        <height>16</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string>Имя клиента</string>
-      </property>
-     </widget>
-    </widget>
-   </widget>
+    </item>
+   </layout>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
  </widget>

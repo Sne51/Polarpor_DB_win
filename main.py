@@ -2,7 +2,7 @@ import sys
 import json
 import logging
 from PyQt5.QtWidgets import QApplication, QMainWindow, QDialog, QTableWidgetItem, QMessageBox, QSplashScreen, QComboBox, QHeaderView, QLabel, QLineEdit
-from PyQt5.QtCore import Qt, QTimer, QDateTime
+from PyQt5.QtCore import Qt, QTimer, QDateTime, QEvent
 from PyQt5.QtGui import QPixmap, QScreen, QColor
 from PyQt5 import uic
 from firebase_manager import FirebaseManager
@@ -224,7 +224,7 @@ class MainWindow(QMainWindow):
             return
 
         row = selected_items[0].row()
-        proforma_id = self.proformaTable.item(row, 1).text()  # Учитывая изменение порядка столбцов
+        proforma_id = self.proformaTable.item(row, 1).text()
         response = QMessageBox.question(self, "Подтверждение", f"Вы уверены, что хотите удалить проформу с ID {proforma_id}?",
                                         QMessageBox.Yes | QMessageBox.No)
         if response == QMessageBox.Yes:
@@ -317,3 +317,4 @@ if __name__ == "__main__":
         main_window.show()
         splash.finish(main_window)
         sys.exit(app.exec_())
+
