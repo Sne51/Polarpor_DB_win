@@ -38,12 +38,13 @@ class LoginDialog(QDialog):
         QMessageBox.warning(self, 'Ошибка', 'Неверные имя пользователя или пароль')
 
 
-
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         uic.loadUi('main.ui', self)
         self.firebase_manager = FirebaseManager()
+
+        self.setWindowTitle("База")
 
         self.addCaseButton.clicked.connect(self.add_new_case)
         self.deleteCaseButton.clicked.connect(self.confirm_delete_case)
@@ -59,7 +60,7 @@ class MainWindow(QMainWindow):
 
         # Масштабирование окна в зависимости от разрешения экрана
         screen = QApplication.primaryScreen().availableGeometry()
-        self.resize(int(screen.width() * 0.8), int(screen.height() * 0.8))
+        self.resize(int(screen.width() * 0.6), int(screen.height() * 0.6))
 
         # Увеличение шрифта всех виджетов
         font = self.font()
@@ -318,23 +319,27 @@ if __name__ == "__main__":
 
     login_dialog = LoginDialog()
     if login_dialog.exec_() == QDialog.Accepted:
-        # Load the splash screen
-        splash_pix = QPixmap('/Users/sk/Documents/EDU_Python/PPT_do_quick/media/splash_screen_1.png')
+        # Определяем путь к splash screen в зависимости от операционной системы
+        if sys.platform == "win32":
+            splash_pix = QPixmap('C:/Users/Usr/Documents/Polarpor_DB_win/Polarpor_DB_win/media/splash_screen_1.png')
+        else:
+            splash_pix = QPixmap('/Users/sk/Documents/EDU_Python/PPT_do_quick/media/splash_screen_1.png')
+
         splash_pix = splash_pix.scaled(600, 600, Qt.KeepAspectRatio)
         splash = QSplashScreen(splash_pix, Qt.WindowStaysOnTopHint)
         splash.setMask(splash_pix.mask())
         splash.show()
 
-        # Center the SplashScreen on the screen
+        # Центрируем splash screen
         screen_geometry = app.primaryScreen().geometry()
         center_point = screen_geometry.center()
         splash.move(center_point.x() - splash.width() // 2, center_point.y() - splash.height() // 2)
 
         def update_splash_message(message):
             splash.showMessage(message, Qt.AlignBottom | Qt.AlignCenter, QColor(Qt.white))
-            app.processEvents()  # Ensure the message is shown immediately
+            app.processEvents()  # Обеспечивает немедленное отображение сообщения
 
-        # Example updates of splash screen messages
+        # Примеры обновления сообщений на splash screen
         update_splash_message("Инициализация...")
         logging.info("Инициализация...")
         QTimer.singleShot(1000, lambda: update_splash_message("Загрузка данных..."))
@@ -344,7 +349,7 @@ if __name__ == "__main__":
 
         main_window = MainWindow()
 
-        # Example update messages during data loading
+        # Примеры обновления сообщений при загрузке данных
         update_splash_message("Загрузка данных о клиентах...")
         main_window.load_client_table_data()
         update_splash_message("Загрузка данных о проформах...")
