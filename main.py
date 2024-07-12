@@ -322,10 +322,10 @@ if __name__ == "__main__":
         # Получение размеров экрана
         screen = app.primaryScreen()
         screen_size = screen.size()
-
+        
         # Загрузка splash screen
         splash_pix = QPixmap('media/splash_screen_1.png')
-        splash_pix = splash_pix.scaled(screen_size.width() // 3, screen_size.height() // 3, Qt.KeepAspectRatio)
+        splash_pix = splash_pix.scaled(screen_size.width() // 2, screen_size.height() // 2, Qt.KeepAspectRatio)
         splash = QSplashScreen(splash_pix, Qt.WindowStaysOnTopHint)
         splash.setMask(splash_pix.mask())
         splash.show()
