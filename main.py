@@ -319,27 +319,26 @@ if __name__ == "__main__":
 
     login_dialog = LoginDialog()
     if login_dialog.exec_() == QDialog.Accepted:
-        # Определяем путь к splash screen в зависимости от операционной системы
-        if sys.platform == "win32":
-            splash_pix = QPixmap('C:/Users/Usr/Documents/Polarpor_DB_win/Polarpor_DB_win/media/splash_screen_1.png')
-        else:
-            splash_pix = QPixmap('/Users/sk/Documents/EDU_Python/PPT_do_quick/media/splash_screen_1.png')
+        # Получение размеров экрана
+        screen = app.primaryScreen()
+        screen_size = screen.size()
 
-        splash_pix = splash_pix.scaled(600, 600, Qt.KeepAspectRatio)
+        # Загрузка splash screen
+        splash_pix = QPixmap('media/splash_screen_1.png')
+        splash_pix = splash_pix.scaled(screen_size.width() // 3, screen_size.height() // 3, Qt.KeepAspectRatio)
         splash = QSplashScreen(splash_pix, Qt.WindowStaysOnTopHint)
         splash.setMask(splash_pix.mask())
         splash.show()
 
-        # Центрируем splash screen
-        screen_geometry = app.primaryScreen().geometry()
-        center_point = screen_geometry.center()
+        # Центрирование splash screen
+        center_point = screen.geometry().center()
         splash.move(center_point.x() - splash.width() // 2, center_point.y() - splash.height() // 2)
 
         def update_splash_message(message):
             splash.showMessage(message, Qt.AlignBottom | Qt.AlignCenter, QColor(Qt.white))
-            app.processEvents()  # Обеспечивает немедленное отображение сообщения
+            app.processEvents()  # Ensure the message is shown immediately
 
-        # Примеры обновления сообщений на splash screen
+        # Пример обновления сообщений splash screen
         update_splash_message("Инициализация...")
         logging.info("Инициализация...")
         QTimer.singleShot(1000, lambda: update_splash_message("Загрузка данных..."))
@@ -349,7 +348,7 @@ if __name__ == "__main__":
 
         main_window = MainWindow()
 
-        # Примеры обновления сообщений при загрузке данных
+        # Пример обновления сообщений во время загрузки данных
         update_splash_message("Загрузка данных о клиентах...")
         main_window.load_client_table_data()
         update_splash_message("Загрузка данных о проформах...")
