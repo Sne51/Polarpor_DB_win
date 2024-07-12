@@ -14,6 +14,15 @@ class LoginDialog(QDialog):
     def __init__(self):
         super().__init__()
         uic.loadUi("login.ui", self)
+        
+        # Set the window size
+        self.resize(320, 160)  # Adjust the size as needed
+
+        # Increase the font size of all widgets
+        font = self.font()
+        font.setPointSize(14)  # Adjust the font size as needed
+        self.setFont(font)
+
         self.passwordInput.setEchoMode(QLineEdit.Password)
         self.loginButton.clicked.connect(self.check_credentials)
 
@@ -27,6 +36,7 @@ class LoginDialog(QDialog):
                 self.accept()
                 return
         QMessageBox.warning(self, 'Ошибка', 'Неверные имя пользователя или пароль')
+
 
 
 class MainWindow(QMainWindow):
