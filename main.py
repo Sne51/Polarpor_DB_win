@@ -14,8 +14,19 @@ class LoginDialog(QDialog):
     def __init__(self):
         super().__init__()
         uic.loadUi("login.ui", self)
-        
-        # Set the window size
+        self.loginButton.clicked.connect(self.check_credentials)
+        self.passwordInput.setEchoMode(QLineEdit.Password)
+
+    # Устанавливаем фокус на поле логина после полной инициализации
+        QTimer.singleShot(0, self.usernameInput.setFocus)
+
+    # Устанавливаем порядок фокуса
+        self.setTabOrder(self.usernameInput, self.passwordInput)
+        self.setTabOrder(self.passwordInput, self.loginButton)
+        self.setTabOrder(self.loginButton, self.cancelButton)
+
+
+    # Set the window size
         self.resize(320, 160)  # Adjust the size as needed
 
         # Increase the font size of all widgets
@@ -319,26 +330,27 @@ if __name__ == "__main__":
 
     login_dialog = LoginDialog()
     if login_dialog.exec_() == QDialog.Accepted:
-        # Получение размеров экрана
-        screen = app.primaryScreen()
-        screen_size = screen.size()
-        
-        # Загрузка splash screen
-        splash_pix = QPixmap('media/splash_screen_1.png')
-        splash_pix = splash_pix.scaled(screen_size.width() // 2, screen_size.height() // 2, Qt.KeepAspectRatio)
+        # Load the splash screen
+        splash_pix = QPixmap('/Users/sk/Documents/EDU_Python/PPT_do_quick/media/splash_screen_1.png')
+        splash_pix = splash_pix.scaled(600, 600, Qt.KeepAspectRatio)
         splash = QSplashScreen(splash_pix, Qt.WindowStaysOnTopHint)
         splash.setMask(splash_pix.mask())
         splash.show()
 
-        # Центрирование splash screen
-        center_point = screen.geometry().center()
+        # Center the SplashScreen on the screen
+        screen_geometry = app.primaryScreen().geometry()
+        center_point = screen_geometry.center()
         splash.move(center_point.x() - splash.width() // 2, center_point.y() - splash.height() // 2)
 
+        # Calculate font size based on screen resolution
+        screen_height = screen_geometry.height()
+        font_size = int(screen_height * 0.05)  # 5% of the screen height
+
         def update_splash_message(message):
-            splash.showMessage(message, Qt.AlignBottom | Qt.AlignCenter, QColor(Qt.white))
+            splash.showMessage(f"<h3 style='font-size:{font_size}px; color:white;'>{message}</h3>", Qt.AlignBottom | Qt.AlignCenter)
             app.processEvents()  # Ensure the message is shown immediately
 
-        # Пример обновления сообщений splash screen
+        # Example updates of splash screen messages
         update_splash_message("Инициализация...")
         logging.info("Инициализация...")
         QTimer.singleShot(1000, lambda: update_splash_message("Загрузка данных..."))
@@ -348,7 +360,7 @@ if __name__ == "__main__":
 
         main_window = MainWindow()
 
-        # Пример обновления сообщений во время загрузки данных
+        # Example update messages during data loading
         update_splash_message("Загрузка данных о клиентах...")
         main_window.load_client_table_data()
         update_splash_message("Загрузка данных о проформах...")
