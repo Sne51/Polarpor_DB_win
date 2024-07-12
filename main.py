@@ -330,9 +330,13 @@ if __name__ == "__main__":
 
     login_dialog = LoginDialog()
     if login_dialog.exec_() == QDialog.Accepted:
-        # Load the splash screen
-        splash_pix = QPixmap('/Users/sk/Documents/EDU_Python/PPT_do_quick/media/splash_screen_1.png')
-        splash_pix = splash_pix.scaled(600, 600, Qt.KeepAspectRatio)
+        # Определяем путь к splash screen в зависимости от операционной системы
+        if sys.platform == "win32":
+            splash_pix = QPixmap('C:/Users/Usr/Documents/Polarpor_DB_win/Polarpor_DB_win/media/splash_screen_1.png')
+        else:
+            splash_pix = QPixmap('/Users/sk/Documents/EDU_Python/PPT_do_quick/media/splash_screen_1.png')
+        
+        splash_pix = splash_pix.scaled(800, 800, Qt.KeepAspectRatio)  # Адаптируем размер Splash Screen
         splash = QSplashScreen(splash_pix, Qt.WindowStaysOnTopHint)
         splash.setMask(splash_pix.mask())
         splash.show()
@@ -342,12 +346,8 @@ if __name__ == "__main__":
         center_point = screen_geometry.center()
         splash.move(center_point.x() - splash.width() // 2, center_point.y() - splash.height() // 2)
 
-        # Calculate font size based on screen resolution
-        screen_height = screen_geometry.height()
-        font_size = int(screen_height * 0.05)  # 5% of the screen height
-
         def update_splash_message(message):
-            splash.showMessage(f"<h3 style='font-size:{font_size}px; color:white;'>{message}</h3>", Qt.AlignBottom | Qt.AlignCenter)
+            splash.showMessage(message, Qt.AlignBottom | Qt.AlignCenter, QColor(Qt.white))
             app.processEvents()  # Ensure the message is shown immediately
 
         # Example updates of splash screen messages
