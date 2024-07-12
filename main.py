@@ -47,6 +47,28 @@ class MainWindow(QMainWindow):
         self.setup_client_table()
         self.load_proforma_table_data()  # Ensure this method is called on initialization
 
+        # Масштабирование окна в зависимости от разрешения экрана
+        screen = QApplication.primaryScreen().availableGeometry()
+        self.resize(int(screen.width() * 0.8), int(screen.height() * 0.8))
+
+        # Увеличение шрифта всех виджетов
+        font = self.font()
+        font.setPointSize(12)  # Здесь можно настроить нужный размер шрифта
+        self.setFont(font)
+
+        # Установка фильтра событий для отслеживания изменения размера окна
+        self.installEventFilter(self)
+
+    def eventFilter(self, source, event):
+        if event.type() == QEvent.Resize and source is self:
+            self.resize_tables()
+        return super(MainWindow, self).eventFilter(source, event)
+
+    def resize_tables(self):
+        self.caseTable.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.proformaTable.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.clientTable.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+
     def setup_case_table(self):
         headers = ["ID", "Имя", "Клиент", "Клиент ID", "Комментарий", "Дата создания"]
         self.caseTable.setColumnCount(len(headers))
@@ -312,17 +334,16 @@ if __name__ == "__main__":
 
         main_window = MainWindow()
 
-        # Update splash screen during MainWindow initialization
-        update_splash_message("Загрузка данных таблицы дел...")
-        main_window.load_case_table_data()
+        # Example update messages during data loading
+        update_splash_message("Загрузка данных о клиентах...")
+        main_window.load_client_table_data()
+        update_splash_message("Загрузка данных о проформах...")
+        main_window.load_proforma_table_data()
         update_splash_message("Загрузка уникальных имен...")
         main_window.load_unique_names()
-        update_splash_message("Загрузка данных таблицы клиентов...")
-        main_window.load_client_table_data()
-        update_splash_message("Загрузка данных таблицы проформ...")
-        main_window.load_proforma_table_data()
+        update_splash_message("Загрузка данных о делах...")
+        main_window.load_case_table_data()
 
-        # Ensure the splash screen stays for a reasonable time
         QTimer.singleShot(3000, splash.close)
 
         main_window.show()
