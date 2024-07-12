@@ -310,11 +310,21 @@ if __name__ == "__main__":
         QTimer.singleShot(2000, lambda: update_splash_message("Подготовка интерфейса..."))
         logging.info("Подготовка интерфейса...")
 
+        main_window = MainWindow()
+
+        # Update splash screen during MainWindow initialization
+        update_splash_message("Загрузка данных таблицы дел...")
+        main_window.load_case_table_data()
+        update_splash_message("Загрузка уникальных имен...")
+        main_window.load_unique_names()
+        update_splash_message("Загрузка данных таблицы клиентов...")
+        main_window.load_client_table_data()
+        update_splash_message("Загрузка данных таблицы проформ...")
+        main_window.load_proforma_table_data()
+
         # Ensure the splash screen stays for a reasonable time
         QTimer.singleShot(3000, splash.close)
 
-        main_window = MainWindow()
         main_window.show()
         splash.finish(main_window)
         sys.exit(app.exec_())
-
