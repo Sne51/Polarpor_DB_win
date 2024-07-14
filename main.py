@@ -336,21 +336,25 @@ if __name__ == "__main__":
         else:
             splash_pix = QPixmap('/Users/sk/Documents/EDU_Python/PPT_do_quick/media/splash_screen_1.png')
         
-        splash_pix = splash_pix.scaled(800, 800, Qt.KeepAspectRatio)  # Адаптируем размер Splash Screen
+        screen = app.primaryScreen().availableGeometry()
+        splash_size = int(min(screen.width(), screen.height()) * 0.5)
+        splash_pix = splash_pix.scaled(splash_size, splash_size, Qt.KeepAspectRatio)  # Адаптируем размер Splash Screen
         splash = QSplashScreen(splash_pix, Qt.WindowStaysOnTopHint)
         splash.setMask(splash_pix.mask())
         splash.show()
 
-        # Center the SplashScreen on the screen
-        screen_geometry = app.primaryScreen().geometry()
-        center_point = screen_geometry.center()
+        # Центрирование Splash Screen
+        center_point = screen.center()
         splash.move(center_point.x() - splash.width() // 2, center_point.y() - splash.height() // 2)
 
         def update_splash_message(message):
+            font = splash.font()
+            font.setPointSize(splash_size // 30)  # Динамическое изменение размера шрифта
+            splash.setFont(font)
             splash.showMessage(message, Qt.AlignBottom | Qt.AlignCenter, QColor(Qt.white))
             app.processEvents()  # Ensure the message is shown immediately
 
-        # Example updates of splash screen messages
+        # Примеры обновления сообщений на splash screen
         update_splash_message("Инициализация...")
         logging.info("Инициализация...")
         QTimer.singleShot(1000, lambda: update_splash_message("Загрузка данных..."))
@@ -360,7 +364,7 @@ if __name__ == "__main__":
 
         main_window = MainWindow()
 
-        # Example update messages during data loading
+        # Примеры обновления сообщений во время загрузки данных
         update_splash_message("Загрузка данных о клиентах...")
         main_window.load_client_table_data()
         update_splash_message("Загрузка данных о проформах...")
@@ -375,3 +379,4 @@ if __name__ == "__main__":
         main_window.show()
         splash.finish(main_window)
         sys.exit(app.exec_())
+
