@@ -349,7 +349,10 @@ if __name__ == "__main__":
 
         def update_splash_message(message):
             font = splash.font()
-            font.setPointSize(splash_size // 30)  # Динамическое изменение размера шрифта
+            if sys.platform == "win32":
+                font.setPointSize(splash_size // 40)  # Уменьшено значение для Windows
+            else:
+                font.setPointSize(splash_size // 30)  # Оригинальное значение для macOS
             splash.setFont(font)
             splash.showMessage(message, Qt.AlignBottom | Qt.AlignCenter, QColor(Qt.white))
             app.processEvents()  # Ensure the message is shown immediately
@@ -379,4 +382,3 @@ if __name__ == "__main__":
         main_window.show()
         splash.finish(main_window)
         sys.exit(app.exec_())
-
