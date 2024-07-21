@@ -18,7 +18,7 @@
     <item row="0" column="0">
      <widget class="QTabWidget" name="Case_tab">
       <property name="currentIndex">
-       <number>1</number>
+       <number>0</number>
       </property>
       <widget class="QWidget" name="tab">
        <attribute name="title">
@@ -27,16 +27,6 @@
        <layout class="QGridLayout" name="gridLayout_4">
         <item row="0" column="0">
          <layout class="QGridLayout" name="gridLayout">
-          <item row="0" column="0" colspan="2">
-           <widget class="QTableWidget" name="caseTable"/>
-          </item>
-          <item row="1" column="0">
-           <widget class="QLabel" name="label_caseName">
-            <property name="text">
-             <string>Выбрать имя</string>
-            </property>
-           </widget>
-          </item>
           <item row="2" column="0">
            <widget class="QComboBox" name="caseNameInput">
             <property name="sizePolicy">
@@ -44,6 +34,29 @@
               <horstretch>0</horstretch>
               <verstretch>0</verstretch>
              </sizepolicy>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="0" colspan="2">
+           <widget class="QTableWidget" name="caseTable"/>
+          </item>
+          <item row="5" column="0">
+           <widget class="QComboBox" name="searchComboBox"/>
+          </item>
+          <item row="6" column="0">
+           <widget class="QLineEdit" name="searchInput"/>
+          </item>
+          <item row="6" column="1">
+           <widget class="QPushButton" name="searchButton">
+            <property name="text">
+             <string>Find</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="label_caseName">
+            <property name="text">
+             <string>Выбрать имя</string>
             </property>
            </widget>
           </item>
@@ -70,6 +83,13 @@
             </property>
             <property name="text">
              <string>Удалить дело</string>
+            </property>
+           </widget>
+          </item>
+          <item row="4" column="0">
+           <widget class="QLabel" name="label">
+            <property name="text">
+             <string>Выбери базу для поиска</string>
             </property>
            </widget>
           </item>

@@ -3,9 +3,13 @@ import json
 import logging
 from PyQt5.QtWidgets import QApplication, QMainWindow, QDialog, QTableWidgetItem, QMessageBox, QSplashScreen, QComboBox, QHeaderView, QLabel, QLineEdit
 from PyQt5.QtCore import Qt, QTimer, QDateTime, QEvent
-from PyQt5.QtGui import QPixmap, QScreen, QColor
+from PyQt5.QtGui import QPixmap, QScreen, QColor, QGuiApplication
 from PyQt5 import uic
 from firebase_manager import FirebaseManager
+from qt_material import apply_stylesheet
+
+# Импорт функций поиска
+from search_functions import search_in_case_table, search_in_proforma_table, search_in_client_table
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -24,7 +28,6 @@ class LoginDialog(QDialog):
         self.setTabOrder(self.usernameInput, self.passwordInput)
         self.setTabOrder(self.passwordInput, self.loginButton)
         self.setTabOrder(self.loginButton, self.cancelButton)
-
 
     # Set the window size
         self.resize(320, 160)  # Adjust the size as needed
@@ -64,6 +67,12 @@ class MainWindow(QMainWindow):
         self.addClientButton.clicked.connect(self.add_new_client)
         self.deleteClientButton.clicked.connect(self.confirm_delete_client)
 
+        # Подключение кнопки поиска к методу search_items
+        self.searchButton.clicked.connect(self.search_items)
+
+        # Заполнение выпадающего списка
+        self.searchComboBox.addItems(["Case", "Proforma", "Client"])
+
         self.setup_case_table()
         self.setup_proforma_table()
         self.setup_client_table()
@@ -80,6 +89,16 @@ class MainWindow(QMainWindow):
 
         # Установка фильтра событий для отслеживания изменения размера окна
         self.installEventFilter(self)
+
+    def search_items(self):
+        search_text = self.searchInput.text().strip().lower()
+        search_type = self.searchComboBox.currentText()
+        if search_type == "Case":
+            search_in_case_table(self.caseTable, self.firebase_manager, search_text)
+        elif search_type == "Proforma":
+            search_in_proforma_table(self.proformaTable, self.firebase_manager, search_text)
+        elif search_type == "Client":
+            search_in_client_table(self.clientTable, self.firebase_manager, search_text)
 
     def eventFilter(self, source, event):
         if event.type() == QEvent.Resize and source is self:
@@ -328,6 +347,9 @@ class MainWindow(QMainWindow):
 if __name__ == "__main__":
     app = QApplication(sys.argv)
 
+    # Применение темы Material
+    apply_stylesheet(app, theme='dark_teal.xml')
+
     login_dialog = LoginDialog()
     if login_dialog.exec_() == QDialog.Accepted:
         # Определяем путь к splash screen в зависимости от операционной системы
@@ -335,7 +357,7 @@ if __name__ == "__main__":
             splash_pix = QPixmap('C:/Users/Usr/Documents/Polarpor_DB_win/Polarpor_DB_win/media/splash_screen_1.png')
         else:
             splash_pix = QPixmap('/Users/sk/Documents/EDU_Python/PPT_do_quick/media/splash_screen_1.png')
-        
+
         screen = app.primaryScreen().availableGeometry()
         splash_size = int(min(screen.width(), screen.height()) * 0.5)
         splash_pix = splash_pix.scaled(splash_size, splash_size, Qt.KeepAspectRatio)  # Адаптируем размер Splash Screen
