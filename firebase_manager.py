@@ -65,6 +65,10 @@ class FirebaseManager:
         if client_id:
             self.clients_ref.child(client_id).delete()
 
+    def delete_proforma(self, proforma_id):
+        if proforma_id:
+            self.proformas_ref.child(proforma_id).delete()
+
     def check_and_add_client(self, name):
         clients = self.get_all_clients()
         logging.debug(f"Checking and adding client. Current clients: {clients}")
