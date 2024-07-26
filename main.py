@@ -1,9 +1,9 @@
 import sys
 import json
 import logging
-from PyQt5.QtWidgets import QApplication, QMainWindow, QDialog, QTableWidgetItem, QMessageBox, QSplashScreen, QComboBox, QHeaderView, QLabel, QLineEdit
+from PyQt5.QtWidgets import QApplication, QMainWindow, QDialog, QTableWidgetItem, QMessageBox, QSplashScreen, QComboBox, QHeaderView, QLabel, QLineEdit, QPushButton, QTableWidget
 from PyQt5.QtCore import Qt, QTimer, QDateTime, QEvent
-from PyQt5.QtGui import QPixmap, QScreen, QColor, QGuiApplication
+from PyQt5.QtGui import QPixmap, QScreen, QColor
 from PyQt5 import uic
 from firebase_manager import FirebaseManager
 from qt_material import apply_stylesheet
@@ -21,15 +21,15 @@ class LoginDialog(QDialog):
         self.loginButton.clicked.connect(self.check_credentials)
         self.passwordInput.setEchoMode(QLineEdit.Password)
 
-    # Устанавливаем фокус на поле логина после полной инициализации
+        # Устанавливаем фокус на поле логина после полной инициализации
         QTimer.singleShot(0, self.usernameInput.setFocus)
 
-    # Устанавливаем порядок фокуса
+        # Устанавливаем порядок фокуса
         self.setTabOrder(self.usernameInput, self.passwordInput)
         self.setTabOrder(self.passwordInput, self.loginButton)
         self.setTabOrder(self.loginButton, self.cancelButton)
 
-    # Set the window size
+        # Set the window size
         self.resize(320, 160)  # Adjust the size as needed
 
         # Increase the font size of all widgets
@@ -59,6 +59,27 @@ class MainWindow(QMainWindow):
         self.firebase_manager = FirebaseManager()
 
         self.setWindowTitle("База")
+
+        # Делает выпадающие списки редактируемыми, что позволяет вводить новые значения
+        self.caseNameInput.setEditable(True)
+        self.clientInput.setEditable(True)
+
+        self.caseNameInput.lineEdit().textEdited.connect(self.filter_case_names)
+        self.clientInput.lineEdit().textEdited.connect(self.filter_client_names)
+
+        # Инициализация виджетов
+        self.caseNameInput = self.findChild(QComboBox, 'caseNameInput')
+        self.clientInput = self.findChild(QComboBox, 'clientInput')
+        self.addCaseButton = self.findChild(QPushButton, 'addCaseButton')
+        self.deleteCaseButton = self.findChild(QPushButton, 'deleteCaseButton')
+        self.proformaClientInput = self.findChild(QComboBox, 'proformaClientInput')
+        self.proformaNameInput = self.findChild(QComboBox, 'proformaNameInput')
+        self.addProformaButton = self.findChild(QPushButton, 'addProformaButton')
+        self.deleteProformaButton = self.findChild(QPushButton, 'deleteProformaButton')
+        self.clientTable = self.findChild(QTableWidget, 'clientTable')
+        self.clientNameInput = self.findChild(QLineEdit, 'clientNameInput')
+        self.addClientButton = self.findChild(QPushButton, 'addClientButton')
+        self.deleteClientButton = self.findChild(QPushButton, 'deleteClientButton')
 
         self.addCaseButton.clicked.connect(self.add_new_case)
         self.deleteCaseButton.clicked.connect(self.confirm_delete_case)
@@ -189,14 +210,18 @@ class MainWindow(QMainWindow):
     def load_client_table_data(self):
         logging.info("Loading client table data")
         self.clientTable.setRowCount(0)
+        self.clientInput.clear()  # Очистка перед добавлением новых данных
+
         clients = self.firebase_manager.get_all_clients()
         logging.debug(f"Clients loaded: {clients}")
+        
         if isinstance(clients, dict):
             for client_id, client_data in clients.items():
                 row_position = self.clientTable.rowCount()
                 self.clientTable.insertRow(row_position)
                 self.clientTable.setItem(row_position, 0, QTableWidgetItem(client_id))
                 self.clientTable.setItem(row_position, 1, QTableWidgetItem(client_data.get('name', '') if isinstance(client_data, dict) else client_data))
+                self.clientInput.addItem(client_data.get('name', '') if isinstance(client_data, dict) else client_data)
         elif isinstance(clients, list):
             for client_data in clients:
                 if client_data:
@@ -204,22 +229,32 @@ class MainWindow(QMainWindow):
                     self.clientTable.insertRow(row_position)
                     self.clientTable.setItem(row_position, 0, QTableWidgetItem(client_data['id']))
                     self.clientTable.setItem(row_position, 1, QTableWidgetItem(client_data['name']))
+                    self.clientInput.addItem(client_data['name'])  # Добавляем имя клиента в ComboBox
+
         logging.info("Client table data loaded")
+        self.clientInput.repaint()  # Принудительное обновление интерфейса
 
     def add_new_case(self):
-        name = self.caseNameInput.currentText().strip()
-        client_name = self.caseClientInput.currentText().strip()
-        if not name or not client_name:
-            QMessageBox.warning(self, "Внимание", "Имя дела и клиент не могут быть пустыми")
+        manager_name = self.caseNameInput.currentText().strip()
+        client_name = self.clientInput.currentText().strip()
+
+        if not manager_name or not client_name:
+            QMessageBox.warning(self, "Внимание", "Имя менеджера и клиента не могут быть пустыми")
             return
 
         comment = ''
         date_created = QDateTime.currentDateTime().toString("yyyy-MM-dd HH:mm:ss")
 
         try:
+            # Проверка и добавление клиента в базу, если он новый
             client_id = self.firebase_manager.check_and_add_client(client_name)
+
+            # Проверка и добавление имени менеджера в список, если он новый
+            if manager_name not in [self.caseNameInput.itemText(i) for i in range(self.caseNameInput.count())]:
+                self.caseNameInput.addItem(manager_name)
+
             new_case = {
-                'name': name,
+                'name': manager_name,
                 'client_name': client_name,
                 'client': client_id,
                 'comment': comment,
@@ -342,6 +377,50 @@ class MainWindow(QMainWindow):
                 unique_names.add(case_data.get('name', ''))
             self.caseNameInput.addItems(sorted(unique_names))
         logging.info("Unique names loaded")
+
+    def filter_case_names(self, text):
+        self.caseNameInput.clear()
+        cases = self.firebase_manager.get_all_cases()
+        if cases:
+            unique_names = set()
+            for case_id, case_data in cases.items():
+                name = case_data.get('name', '')
+                if text.lower() in name.lower():
+                    unique_names.add(name)
+            self.caseNameInput.addItems(sorted(unique_names))
+            self.caseNameInput.setCurrentText(text)  # Оставить введенный текст
+
+    def filter_client_names(self, text):
+        self.clientInput.clear()
+        clients = self.firebase_manager.get_all_clients()
+        logging.debug(f"Clients from Firebase: {clients}")
+        if clients:
+            unique_names = set()
+            if isinstance(clients, dict):
+                for client_id, client_data in clients.items():
+                    name = client_data.get('name', '') if isinstance(client_data, dict) else client_data
+                    logging.debug(f"Client ID: {client_id}, Name: {name}")
+                    if text.lower() in name.lower():
+                        unique_names.add(name)
+            elif isinstance(clients, list):
+                for client_data in clients:
+                    if client_data:
+                        name = client_data.get('name', '')
+                        logging.debug(f"Client Name: {name}")
+                        if text.lower() in name.lower():
+                            unique_names.add(name)
+            
+            # Ограничиваем отображение первых 5 уникальных имен
+            limited_names = sorted(unique_names)[:5]
+            logging.debug(f"Limited client names: {limited_names}")
+            self.clientInput.addItems(limited_names)
+
+        # Восстанавливаем введенный текст в поле ввода
+        self.clientInput.setCurrentText(text)
+        logging.debug(f"Current text in client input: {text}")
+
+        # Принудительное обновление интерфейса
+        self.clientInput.repaint()
 
 
 if __name__ == "__main__":

@@ -27,8 +27,12 @@ class FirebaseManager:
         return cases if cases else {}
 
     def get_all_clients(self):
-        clients = self.clients_ref.get()
-        return clients if clients else {}
+        try:
+            clients = self.clients_ref.get()
+            return clients if clients else {}
+        except Exception as e:
+            logging.error(f"Ошибка при получении данных клиентов: {e}")
+            return {}
 
     def get_all_proformas(self):
         proformas = self.proformas_ref.get()
@@ -77,3 +81,13 @@ class FirebaseManager:
                 if client_data and client_data['name'] == name:
                     return client_data['id']
         return self.add_client(name)
+    
+    def add_proforma(self, proforma_data):
+        proformas = self.proformas_ref.get()
+        logging.debug(f"Current proformas: {proformas}")
+        if not proformas:
+            proforma_id = '1000'
+        else:
+            proforma_id = str(max([int(pid) for pid in proformas.keys() if pid.isdigit()] + [1000]) + 1)
+        self.proformas_ref.child(proforma_id).set(proforma_data)
+        return proforma_id
