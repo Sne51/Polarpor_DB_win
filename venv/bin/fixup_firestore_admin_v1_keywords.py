@@ -1,4 +1,4 @@
-#!/Users/sk/Documents/EDU_Python/PPT_do_quick/venv/bin/python3.12
+#!/Users/sk/Documents/EDU_Python/PPT_do_quick/venv/bin/python
 # -*- coding: utf-8 -*-
 # Copyright 2024 Google LLC
 #
