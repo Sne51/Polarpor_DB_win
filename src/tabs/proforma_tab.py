@@ -1,4 +1,3 @@
-# proforma_tab.py
 from PyQt5.QtWidgets import QMainWindow, QTableWidgetItem, QMessageBox, QHeaderView
 from PyQt5.QtCore import QDateTime
 import logging
@@ -21,6 +20,7 @@ class ProformaTab:
         self.main_window.proformaTable.setHorizontalHeaderLabels(headers)
         self.main_window.proformaTable.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
 
+    @exception_handler
     def load_proforma_table_data(self):
         logging.info("Loading proforma table data")
         self.main_window.proformaTable.setRowCount(0)
@@ -59,7 +59,7 @@ class ProformaTab:
         logging.info("Case numbers for proforma tab loaded")
 
     @exception_handler
-    def add_new_proforma(self):
+    def add_new_proforma(self, event=None):
         name = self.main_window.proformaNameInput.currentText().strip()
         case_number = self.main_window.proformaClientInput.currentText().strip()
         comment = self.main_window.proformaCommentInput.text().strip()
@@ -85,7 +85,7 @@ class ProformaTab:
             QMessageBox.critical(self.main_window, "Ошибка", f"Ошибка при добавлении проформы: {e}")
 
     @exception_handler
-    def confirm_delete_proforma(self):
+    def confirm_delete_proforma(self, event=None):
         selected_items = self.main_window.proformaTable.selectedItems()
         if not selected_items:
             QMessageBox.warning(self.main_window, "Внимание", "Пожалуйста, выберите проформу для удаления")

@@ -20,6 +20,7 @@ class CaseNumbersTab:
         self.main_window.caseTable.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.load_case_table_data()
         self.load_unique_names()
+        self.load_clients_into_combobox()  # Загружаем клиентов в выпадающий список
 
     @exception_handler
     def load_case_table_data(self):
@@ -50,6 +51,16 @@ class CaseNumbersTab:
                 unique_names.add(case_data.get('name', ''))
             self.main_window.caseNameInput.addItems(sorted(unique_names))
         logging.info("Unique names loaded")
+
+    def load_clients_into_combobox(self):
+        logging.info("Loading clients into combobox")
+        self.main_window.clientInput.clear()
+        clients = self.firebase_manager.get_all_clients()
+        if clients:
+            for client_id, client_data in clients.items():
+                client_name = client_data.get('name', '') if isinstance(client_data, dict) else client_data
+                self.main_window.clientInput.addItem(client_name)
+        logging.info("Clients loaded into combobox")
 
     def add_new_case(self):
         manager_name = self.main_window.caseNameInput.currentText().strip()
@@ -82,7 +93,7 @@ class CaseNumbersTab:
             logging.debug(f"New case ID: {case_id}")
             self.load_case_table_data()
             self.load_unique_names()
-            self.main_window.load_client_table_data()
+            self.load_clients_into_combobox()
             QMessageBox.information(self.main_window, "Успех", f"Дело добавлено успешно с ID: {case_id}")
         except Exception as e:
             logging.error(f"Error adding new case: {e}")
@@ -103,6 +114,7 @@ class CaseNumbersTab:
                 self.firebase_manager.delete_case(case_id)
                 self.load_case_table_data()
                 self.load_unique_names()
+                self.load_clients_into_combobox()
                 QMessageBox.information(self.main_window, "Успех", "Дело удалено успешно")
             except Exception as e:
                 logging.error(f"Error deleting case: {e}")

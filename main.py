@@ -12,11 +12,15 @@ from qt_material import apply_stylesheet
 from src.tabs.case_numbers_tab import CaseNumbersTab
 from src.tabs.proforma_tab import ProformaTab
 from src.tabs.clients_tab import ClientsTab
+from src.tabs.cargo_tab import CargoTab  # Подключаем вкладку "Грузы"
 from src.dialogs.login_dialog import LoginDialog
-from src.search_functions import search_in_proforma_table, search_in_client_table
+from src.search_functions import search_in_proforma_table, search_in_client_table, search_in_case_table
+from splash_screen import SplashScreen  # Подключаем SplashScreen
+from src.tabs.suppliers_tab import SuppliersTab
 
 # Настройка логирования
 setup_logging()
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -25,13 +29,6 @@ class MainWindow(QMainWindow):
         self.firebase_manager = FirebaseManager()
 
         self.setWindowTitle("База")
-
-        # Делает выпадающие списки редактируемыми, что позволяет вводить новые значения
-        self.caseNameInput.setEditable(True)
-        self.clientInput.setEditable(True)
-
-        self.caseNameInput.lineEdit().textEdited.connect(self.filter_case_names)
-        self.clientInput.lineEdit().textEdited.connect(self.filter_client_names)
 
         # Инициализация виджетов
         self.caseNameInput = self.findChild(QComboBox, 'caseNameInput')
@@ -46,6 +43,13 @@ class MainWindow(QMainWindow):
         self.clientNameInput = self.findChild(QLineEdit, 'clientNameInput')
         self.addClientButton = self.findChild(QPushButton, 'addClientButton')
         self.deleteClientButton = self.findChild(QPushButton, 'deleteClientButton')
+
+        # Делает выпадающие списки редактируемыми, что позволяет вводить новые значения
+        self.caseNameInput.setEditable(True)
+        self.clientInput.setEditable(True)
+
+        self.caseNameInput.lineEdit().textEdited.connect(self.filter_case_names)
+        self.clientInput.lineEdit().textEdited.connect(self.filter_client_names)
 
         # Подключение кнопки поиска к методу search_items
         self.searchButton.clicked.connect(self.search_items)
@@ -71,6 +75,10 @@ class MainWindow(QMainWindow):
         self.proforma_tab = ProformaTab(self, self.firebase_manager)
         # Инициализация вкладки клиентов
         self.clients_tab = ClientsTab(self, self.firebase_manager)
+        # Инициализация вкладки "Грузы"
+        self.cargo_tab = CargoTab(self, self.firebase_manager)
+        # Инициализация вкладки поставщиков
+        self.suppliers_tab = SuppliersTab(self, self.firebase_manager)
 
     def search_items(self):
         search_text = self.searchInput.text().strip().lower()
@@ -91,9 +99,39 @@ class MainWindow(QMainWindow):
         self.caseTable.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.proformaTable.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.clientTable.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.cargoTable.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
 
     def filter_case_names(self, text):
-        self.case_numbers_tab.filter_case_names(text)
+        self.caseNameInput.clear()
+        cases = self.firebase_manager.get_all_cases()
+        logging.debug(f"Cases from Firebase: {cases}")
+        if cases:
+            unique_names = set()
+            if isinstance(cases, dict):
+                for case_id, case_data in cases.items():
+                    name = case_data.get('name', '') if isinstance(case_data, dict) else case_data
+                    logging.debug(f"Case ID: {case_id}, Name: {name}")
+                    if text.lower() in name.lower():
+                        unique_names.add(name)
+            elif isinstance(cases, list):
+                for case_data in cases:
+                    if case_data:
+                        name = case_data.get('name', '')
+                        logging.debug(f"Case Name: {name}")
+                        if text.lower() in name.lower():
+                            unique_names.add(name)
+            
+            # Ограничиваем отображение первых 5 уникальных имен
+            limited_names = sorted(unique_names)[:5]
+            logging.debug(f"Limited case names: {limited_names}")
+            self.caseNameInput.addItems(limited_names)
+
+        # Восстанавливаем введенный текст в поле ввода
+        self.caseNameInput.setCurrentText(text)
+        logging.debug(f"Current text in case input: {text}")
+
+        # Принудительное обновление интерфейса
+        self.caseNameInput.repaint()
 
     def filter_client_names(self, text):
         self.clientInput.clear()
@@ -132,55 +170,31 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
 
     # Применение темы Material
-    apply_stylesheet(app, theme='dark_teal.xml')
+    #apply_stylesheet(app, theme='dark_teal.xml')
 
     login_dialog = LoginDialog()
     if login_dialog.exec_() == QDialog.Accepted:
-        # Определяем путь к splash screen в зависимости от операционной системы
-        if sys.platform == "win32":
-            splash_pix = QPixmap('C:/Users/Usr/Documents/Polarpor_DB_win/Polarpor_DB_win/media/splash_screen_1.png')
-        else:
-            splash_pix = QPixmap('/Users/sk/Documents/EDU_Python/PPT_do_quick/media/splash_screen_1.png')
-
-        screen = app.primaryScreen().availableGeometry()
-        splash_size = int(min(screen.width(), screen.height()) * 0.5)
-        splash_pix = splash_pix.scaled(splash_size, splash_size, Qt.KeepAspectRatio)  # Адаптируем размер Splash Screen
-        splash = QSplashScreen(splash_pix, Qt.WindowStaysOnTopHint)
-        splash.setMask(splash_pix.mask())
+        splash = SplashScreen(app)  # Передаем объект app в SplashScreen
         splash.show()
 
-        # Центрирование Splash Screen
-        center_point = screen.center()
-        splash.move(center_point.x() - splash.width() // 2, center_point.y() - splash.height() // 2)
-
-        def update_splash_message(message):
-            font = splash.font()
-            if sys.platform == "win32":
-                font.setPointSize(splash_size // 40)  # Уменьшено значение для Windows
-            else:
-                font.setPointSize(splash_size // 30)  # Оригинальное значение для macOS
-            splash.setFont(font)
-            splash.showMessage(message, Qt.AlignBottom | Qt.AlignCenter, QColor(Qt.white))
-            app.processEvents()  # Ensure the message is shown immediately
-
         # Примеры обновления сообщений на splash screen
-        update_splash_message("Инициализация...")
+        splash.update_message("Инициализация...", app)
         logging.info("Инициализация...")
-        QTimer.singleShot(1000, lambda: update_splash_message("Загрузка данных..."))
+        QTimer.singleShot(1000, lambda: splash.update_message("Загрузка данных...", app))
         logging.info("Загрузка данных...")
-        QTimer.singleShot(2000, lambda: update_splash_message("Подготовка интерфейса..."))
+        QTimer.singleShot(2000, lambda: splash.update_message("Подготовка интерфейса...", app))
         logging.info("Подготовка интерфейса...")
 
         main_window = MainWindow()
 
         # Примеры обновления сообщений во время загрузки данных
-        update_splash_message("Загрузка данных о клиентах...")
+        splash.update_message("Загрузка данных о клиентах...", app)
         main_window.clients_tab.load_client_table_data()
-        update_splash_message("Загрузка данных о проформах...")
+        splash.update_message("Загрузка данных о проформах...", app)
         main_window.proforma_tab.load_proforma_table_data()
-        update_splash_message("Загрузка уникальных имен...")
+        splash.update_message("Загрузка уникальных имен...", app)
         main_window.case_numbers_tab.load_unique_names()
-        update_splash_message("Загрузка данных о делах...")
+        splash.update_message("Загрузка данных о делах...", app)
         main_window.case_numbers_tab.load_case_table_data()
 
         QTimer.singleShot(3000, splash.close)
