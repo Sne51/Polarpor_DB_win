@@ -20,7 +20,7 @@ class CaseNumbersTab:
         self.main_window.caseTable.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.load_case_table_data()
         self.load_unique_names()
-        self.load_clients_into_combobox()  # Загружаем клиентов в выпадающий список
+        self.load_clients_into_combobox()
 
     @exception_handler
     def load_case_table_data(self):
@@ -28,8 +28,13 @@ class CaseNumbersTab:
         self.main_window.caseTable.setRowCount(0)
         cases = self.firebase_manager.get_all_cases()
         logging.debug(f"Cases loaded: {cases}")
+        
         if cases:
             for case_id, case_data in cases.items():
+                if not case_id.isdigit():
+                    logging.debug(f"Skipping non-case item: {case_id}")
+                    continue
+                
                 if case_data:
                     row_position = self.main_window.caseTable.rowCount()
                     self.main_window.caseTable.insertRow(row_position)
@@ -44,13 +49,16 @@ class CaseNumbersTab:
     def load_unique_names(self):
         logging.info("Loading unique names")
         self.main_window.caseNameInput.clear()
-        cases = self.firebase_manager.get_all_cases()
-        if cases:
-            unique_names = set()
-            for case_id, case_data in cases.items():
-                unique_names.add(case_data.get('name', ''))
-            self.main_window.caseNameInput.addItems(sorted(unique_names))
-        logging.info("Unique names loaded")
+        
+        # Получаем список менеджеров из FirebaseManager
+        try:
+            managers = self.firebase_manager.get_all_managers()
+            if managers:
+                self.main_window.caseNameInput.addItems(sorted(managers))
+            logging.info("Unique names loaded")
+        except Exception as e:
+            logging.error(f"Error loading unique names: {e}")
+            QMessageBox.critical(self.main_window, "Ошибка", "Не удалось загрузить список менеджеров.")
 
     def load_clients_into_combobox(self):
         logging.info("Loading clients into combobox")
@@ -74,10 +82,8 @@ class CaseNumbersTab:
         date_created = QDateTime.currentDateTime().toString("yyyy-MM-dd HH:mm:ss")
 
         try:
-            # Проверка и добавление клиента в базу, если он новый
             client_id = self.firebase_manager.check_and_add_client(client_name)
 
-            # Проверка и добавление имени менеджера в список, если он новый
             if manager_name not in [self.main_window.caseNameInput.itemText(i) for i in range(self.main_window.caseNameInput.count())]:
                 self.main_window.caseNameInput.addItem(manager_name)
 
@@ -127,7 +133,7 @@ class CaseNumbersTab:
             unique_names = set()
             for case_id, case_data in cases.items():
                 name = case_data.get('name', '')
-                if text.lower() in name.lower():
+                if isinstance(name, str) and text.lower() in name.lower():
                     unique_names.add(name)
             self.main_window.caseNameInput.addItems(sorted(unique_names))
-            self.main_window.caseNameInput.setCurrentText(text)  # Оставить введенный текст
+            self.main_window.caseNameInput.setCurrentText(text)

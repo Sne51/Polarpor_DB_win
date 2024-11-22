@@ -1,7 +1,8 @@
 from PyQt5.QtWidgets import QMainWindow, QTableWidgetItem, QMessageBox, QHeaderView
 from PyQt5.QtCore import QDateTime
 import logging
-from src.decorators import exception_handler  # Обновляем путь для импорта
+from src.decorators import exception_handler
+
 
 class ProformaTab:
     def __init__(self, main_window: QMainWindow, firebase_manager):
@@ -12,6 +13,7 @@ class ProformaTab:
         self.setup_proforma_table()
         self.load_proforma_table_data()
         self.load_proforma_case_numbers()
+        self.load_managers_into_combobox()  # Загружаем менеджеров
 
     @exception_handler
     def setup_proforma_table(self):
@@ -36,16 +38,6 @@ class ProformaTab:
                 self.main_window.proformaTable.setItem(row_position, 3, QTableWidgetItem(proforma_data.get('client', '')))
                 self.main_window.proformaTable.setItem(row_position, 4, QTableWidgetItem(proforma_data.get('comment', '')))
                 self.main_window.proformaTable.setItem(row_position, 5, QTableWidgetItem(proforma_data.get('date_created', '')))
-
-        # Load data into combo boxes
-        self.main_window.proformaNameInput.clear()
-
-        unique_proforma_names = set()
-
-        for proforma_id, proforma_data in proformas.items():
-            unique_proforma_names.add(proforma_data.get('name', ''))
-
-        self.main_window.proformaNameInput.addItems(sorted(unique_proforma_names))
         logging.info("Proforma table data loaded")
 
     @exception_handler
@@ -57,6 +49,20 @@ class ProformaTab:
             case_numbers = [case_id for case_id in cases]
             self.main_window.proformaClientInput.addItems(case_numbers)
         logging.info("Case numbers for proforma tab loaded")
+
+    @exception_handler
+    def load_managers_into_combobox(self):
+        """Загружает список менеджеров в выпадающий список для вкладки проформ."""
+        logging.info("Loading managers into combobox for proforma tab")
+        self.main_window.proformaNameInput.clear()
+        try:
+            managers = self.firebase_manager.get_all_managers()
+            logging.debug(f"Managers loaded: {managers}")
+            self.main_window.proformaNameInput.addItems(managers)
+            logging.info("Managers loaded into combobox successfully")
+        except Exception as e:
+            logging.error(f"Error loading managers into combobox: {e}")
+            QMessageBox.critical(self.main_window, "Ошибка", f"Ошибка загрузки менеджеров: {e}")
 
     @exception_handler
     def add_new_proforma(self, event=None):
@@ -78,7 +84,8 @@ class ProformaTab:
             }
             proforma_id = self.firebase_manager.add_proforma(new_proforma)
             self.load_proforma_table_data()
-            self.load_proforma_case_numbers()  # Reload case numbers to include any new entries
+            self.load_proforma_case_numbers()
+            self.load_managers_into_combobox()  # Обновляем список менеджеров
             QMessageBox.information(self.main_window, "Успех", f"Проформа добавлена успешно с ID: {proforma_id}")
         except Exception as e:
             logging.error(f"Error adding new proforma: {e}")
@@ -99,7 +106,7 @@ class ProformaTab:
             try:
                 self.firebase_manager.delete_proforma(proforma_id)
                 self.load_proforma_table_data()
-                self.load_proforma_case_numbers()  # Reload case numbers to ensure consistency
+                self.load_proforma_case_numbers()
                 QMessageBox.information(self.main_window, "Успех", "Проформа удалена успешно")
             except Exception as e:
                 logging.error(f"Error deleting proforma: {e}")

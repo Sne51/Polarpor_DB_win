@@ -54,6 +54,9 @@ class MainWindow(QMainWindow):
         # Подключение кнопки поиска к методу search_items
         self.searchButton.clicked.connect(self.search_items)
 
+        # Подключение функции поиска к полю ввода (Enter)
+        self.searchInput.returnPressed.connect(self.search_items)
+
         # Заполнение выпадающего списка
         self.searchComboBox.addItems(["Case", "Proforma", "Client"])
 
@@ -73,7 +76,7 @@ class MainWindow(QMainWindow):
         self.case_numbers_tab = CaseNumbersTab(self, self.firebase_manager)
         # Инициализация вкладки номеров проформ
         self.proforma_tab = ProformaTab(self, self.firebase_manager)
-        # Инициализация вкладки клиентов
+        # Инициализация вкладки клиентовa
         self.clients_tab = ClientsTab(self, self.firebase_manager)
         # Инициализация вкладки "Грузы"
         self.cargo_tab = CargoTab(self, self.firebase_manager)
@@ -81,14 +84,26 @@ class MainWindow(QMainWindow):
         self.suppliers_tab = SuppliersTab(self, self.firebase_manager)
 
     def search_items(self):
-        search_text = self.searchInput.text().strip().lower()
-        search_type = self.searchComboBox.currentText()
-        if search_type == "Case":
-            search_in_case_table(self.caseTable, self.firebase_manager, search_text)
-        elif search_type == "Proforma":
-            search_in_proforma_table(self.proformaTable, self.firebase_manager, search_text)
-        elif search_type == "Client":
-            search_in_client_table(self.clientTable, self.firebase_manager, search_text)
+        search_text = self.searchInput.text().strip()
+        if not search_text:
+            QMessageBox.warning(self, "Поиск", "Введите текст для поиска.")
+            return
+
+        # Определяем текущую вкладку для поиска
+        current_tab = self.searchComboBox.currentText()
+
+        logging.info(f"Search initiated for '{search_text}' in tab '{current_tab}'.")
+
+        # Проверяем, какая вкладка выбрана, и вызываем соответствующую функцию поиска
+        if current_tab == "Case" or current_tab == "Дела":
+            search_in_case_table(self.caseTable, self.firebase_manager, search_text, self)
+        elif current_tab == "Proforma" or current_tab == "Проформы":
+            search_in_proforma_table(self.proformaTable, self.firebase_manager, search_text, self)
+        elif current_tab == "Client" or current_tab == "Клиенты":
+            search_in_client_table(self.clientTable, self.firebase_manager, search_text, self)
+        else:
+            QMessageBox.warning(self, "Поиск", f"Неизвестная вкладка: {current_tab}")
+            logging.error(f"Unknown tab selected: {current_tab}")
 
     def eventFilter(self, source, event):
         if event.type() == QEvent.Resize and source is self:
