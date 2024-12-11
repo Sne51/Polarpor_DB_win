@@ -83,6 +83,8 @@ class MainWindow(QMainWindow):
         # Инициализация вкладки поставщиков
         self.suppliers_tab = SuppliersTab(self, self.firebase_manager)
 
+        self.cargo_tab.load_cargo_table()
+
     def search_items(self):
         search_text = self.searchInput.text().strip()
         if not search_text:

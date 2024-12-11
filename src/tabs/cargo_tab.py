@@ -1,61 +1,99 @@
 # src/tabs/cargo_tab.py
-from PyQt5.QtWidgets import QMainWindow, QTableWidgetItem, QMessageBox, QHeaderView
-from PyQt5.QtCore import QDateTime
-import logging
-from src.decorators import exception_handler  # Импортируем декоратор
-from PyQt5.QtGui import QFont
-from PyQt5.QtCore import QEvent
+from PyQt5.QtWidgets import QTableWidgetItem, QComboBox, QDateEdit
+from PyQt5.QtCore import QDate
+from src.local_data_manager import LocalDataManager
+from src.delegates import ComboBoxDelegate, QDateEditDelegate
 
 
 class CargoTab:
-    def __init__(self, main_window, firebase_manager):
-        self.main_window = main_window
+    def __init__(self, parent, firebase_manager):
+        self.parent = parent
         self.firebase_manager = firebase_manager
+        self.data_manager = LocalDataManager()  # Загрузка данных из JSON
+        self.cargo_table = self.parent.cargoTable
+
+        # Загрузка данных из базы
+        self.cases = self.firebase_manager.get_all_cases() or {}
+        self.clients = self.firebase_manager.get_all_clients() or {}
+
+        # Загрузим транспортные компании и пункты назначения
+        self.tk_list = self.data_manager.load_transport_companies() or []
+        self.destination_list = self.data_manager.load_destinations() or []
+
+        # Настройка таблицы "Грузы"
         self.setup_cargo_table()
 
+    def load_cargo_table(self):
+        """Метод для загрузки данных в таблицу."""
+        self.cargo_table.setRowCount(0)  # Очистить таблицу перед загрузкой
+        cargo_data = self.firebase_manager.get_all_cargo()  # Получаем данные из Firebase
+        for cargo in cargo_data:
+            row_position = self.cargo_table.rowCount()
+            self.cargo_table.insertRow(row_position)
+            for col_index, value in enumerate(cargo.values()):
+                self.cargo_table.setItem(row_position, col_index, QTableWidgetItem(str(value)))
+
     def setup_cargo_table(self):
-        # Имена столбцов
-        headers = ["Заказ", "Менеджер", "Поставщик", "Покупатель", "Deadline",
-                   "Пункт назн.", "ETD", "ТК", "Tracking", "ETA"]
+        """Настройка колонок и делегатов таблицы."""
+        self.cargo_table.setColumnCount(10)
+        self.cargo_table.setHorizontalHeaderLabels([
+            "Case Number", "Manager", "Client", "Supplier", "Deadline",
+            "ETD", "ETA", "TK", "Destination", "Tracking"
+        ])
 
-        # Устанавливаем количество столбцов и их заголовки
-        self.main_window.cargoTable.setColumnCount(len(headers))
-        self.main_window.cargoTable.setHorizontalHeaderLabels(headers)
+        # Установим редакторы для столбцов с выпадающими списками и календарем
+        self.cargo_table.setItemDelegateForColumn(4, QDateEditDelegate(self.cargo_table))  # Deadline
+        self.cargo_table.setItemDelegateForColumn(5, QDateEditDelegate(self.cargo_table))  # ETD
+        self.cargo_table.setItemDelegateForColumn(6, QDateEditDelegate(self.cargo_table))  # ETA
+        self.cargo_table.setItemDelegateForColumn(7, ComboBoxDelegate(self.cargo_table, self.tk_list))  # TK
+        self.cargo_table.setItemDelegateForColumn(8, ComboBoxDelegate(self.cargo_table, self.destination_list))  # Destination
 
-        # Настройка шрифта для заголовков
-        header_font = QFont()
-        header_font.setPointSize(8)  # Установите желаемый размер шрифта
-        self.main_window.cargoTable.horizontalHeader().setFont(header_font)
+    def add_cargo_row(self, row_position):
+        """Добавляет строку в таблицу 'Грузы'."""
+        self.cargo_table.insertRow(row_position)
 
-        # Растягивание столбцов по ширине окна
-        self.main_window.cargoTable.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        # Номер заказа
+        case_selector = QComboBox()
+        case_selector.setEditable(True)
+        case_selector.addItems(self.cases.keys())
+        case_selector.currentTextChanged.connect(
+            lambda text: self.fill_cargo_row(text, row_position)
+        )
+        self.cargo_table.setCellWidget(row_position, 0, case_selector)
 
-        # Устанавливаем режим растягивания столбцов на всю ширину таблицы
-        self.main_window.cargoTable.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        # Deadline, ETD, ETA
+        for col in range(4, 7):  # Колонки для календарей
+            date_selector = QDateEdit()
+            date_selector.setCalendarPopup(True)
+            date_selector.setDate(QDate.currentDate())  # Устанавливаем текущую дату
+            self.cargo_table.setCellWidget(row_position, col, date_selector)
 
-    def resizeEvent(self, event):
-        new_size = self.cargoTable.width() // len(self.cargoTable.horizontalHeader())
-        header_font = self.cargoTable.horizontalHeader().font()
-        header_font.setPointSize(max(8, new_size // 15))  # Устанавливаем минимальный размер шрифта 8
-        self.cargoTable.horizontalHeader().setFont(header_font)
+        # TK (Транспортная компания)
+        tk_selector = QComboBox()
+        tk_selector.addItems(self.tk_list)
+        self.cargo_table.setCellWidget(row_position, 7, tk_selector)
 
-    def load_cargo_table_data(self):
-        cargos = self.firebase_manager.get_all_cargos()  # Предположим, что этот метод существует и возвращает данные по грузам
-        self.main_window.cargoTable.setRowCount(0)  # Очищаем таблицу перед загрузкой новых данных
+        # Пункт назначения
+        destination_selector = QComboBox()
+        destination_selector.addItems(self.destination_list)
+        self.cargo_table.setCellWidget(row_position, 8, destination_selector)
 
-        if cargos:
-            for cargo_id, cargo_data in cargos.items():
-                row_position = self.main_window.cargoTable.rowCount()
-                self.main_window.cargoTable.insertRow(row_position)
-                self.main_window.cargoTable.setItem(row_position, 0, QTableWidgetItem(cargo_id))
-     
-                # Пример: Заполнение остальных колонок данными из `cargo_data`
-                self.main_window.cargoTable.setItem(row_position, 1, QTableWidgetItem(cargo_data.get('manager', '')))
-                self.main_window.cargoTable.setItem(row_position, 2, QTableWidgetItem(cargo_data.get('supplier', '')))
-                self.main_window.cargoTable.setItem(row_position, 3, QTableWidgetItem(cargo_data.get('customer', '')))
-                self.main_window.cargoTable.setItem(row_position, 4, QTableWidgetItem(cargo_data.get('deadline', '')))
-                self.main_window.cargoTable.setItem(row_position, 5, QTableWidgetItem(cargo_data.get('destination', '')))
-                self.main_window.cargoTable.setItem(row_position, 6, QTableWidgetItem(cargo_data.get('etd', '')))
-                self.main_window.cargoTable.setItem(row_position, 7, QTableWidgetItem(cargo_data.get('tk', '')))
-                self.main_window.cargoTable.setItem(row_position, 8, QTableWidgetItem(cargo_data.get('tracking', '')))
-                self.main_window.cargoTable.setItem(row_position, 9, QTableWidgetItem(cargo_data.get('eta', '')))
+        # Tracking
+        self.cargo_table.setItem(row_position, 9, QTableWidgetItem(""))
+
+    def fill_cargo_row(self, case_id, row_position):
+        """Автозаполнение строки таблицы 'Грузы'."""
+        case_data = self.cases.get(case_id, {})
+
+        if case_data:
+            # Менеджер
+            manager = case_data.get('manager', '')
+            self.cargo_table.setItem(row_position, 1, QTableWidgetItem(manager))
+
+            # Клиент
+            client_name = case_data.get('client_name', '')
+            self.cargo_table.setItem(row_position, 2, QTableWidgetItem(client_name))
+
+            # Поставщик
+            supplier = case_data.get('supplier', '')
+            self.cargo_table.setItem(row_position, 3, QTableWidgetItem(supplier))

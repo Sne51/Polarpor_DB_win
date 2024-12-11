@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>609</width>
+    <width>833</width>
     <height>596</height>
    </rect>
   </property>
@@ -18,7 +18,7 @@
     <item row="0" column="0">
      <widget class="QTabWidget" name="Case_tab">
       <property name="currentIndex">
-       <number>4</number>
+       <number>3</number>
       </property>
       <widget class="QWidget" name="tab">
        <attribute name="title">
@@ -150,7 +150,7 @@
           <item row="1" column="1">
            <widget class="QLabel" name="label_proformaName">
             <property name="text">
-             <string>Имя</string>
+             <string>Менеджер</string>
             </property>
            </widget>
           </item>
@@ -267,6 +267,61 @@
           <column/>
           <column/>
           <column/>
+         </widget>
+        </item>
+        <item row="3" column="0">
+         <widget class="QLabel" name="label_4">
+          <property name="text">
+           <string>Менеджер</string>
+          </property>
+         </widget>
+        </item>
+        <item row="9" column="0">
+         <widget class="QPushButton" name="addCargoButton">
+          <property name="text">
+           <string>Добавить груз</string>
+          </property>
+         </widget>
+        </item>
+        <item row="6" column="0">
+         <widget class="QComboBox" name="cargoSupplierInput"/>
+        </item>
+        <item row="2" column="0">
+         <widget class="QComboBox" name="cargoCaseNumberInput">
+          <property name="editable">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item row="8" column="0">
+         <widget class="QComboBox" name="cargoCustomerInput">
+          <property name="editable">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="0">
+         <widget class="QLabel" name="label_3">
+          <property name="text">
+           <string>Номер дела</string>
+          </property>
+         </widget>
+        </item>
+        <item row="5" column="0">
+         <widget class="QLabel" name="label_5">
+          <property name="text">
+           <string>Поставщик</string>
+          </property>
+         </widget>
+        </item>
+        <item row="4" column="0">
+         <widget class="QComboBox" name="cargoManagerInput"/>
+        </item>
+        <item row="7" column="0">
+         <widget class="QLabel" name="label_6">
+          <property name="text">
+           <string>Клиент</string>
+          </property>
          </widget>
         </item>
        </layout>

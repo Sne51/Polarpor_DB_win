@@ -3,6 +3,7 @@ import logging
 import os
 from firebase_admin import credentials, initialize_app, db
 
+
 class FirebaseManager:
     def __init__(self):
         # Пути к файлам с учетными данными Firebase для Mac и Windows
@@ -39,6 +40,19 @@ class FirebaseManager:
                 return name.get('name', '').lower()  # Извлекаем строку, если 'name' — это словарь
             return name.lower() if isinstance(name, str) else ''
         return ''
+
+    def get_all_cargo(self):
+        """Получение данных о грузах из Firebase."""
+        try:
+            cargo_ref = self.db.reference('cargo')  # Убедитесь, что этот путь существует в вашей базе Firebase
+            cargo_data = cargo_ref.get()
+            if cargo_data is None:
+                logging.warning("No cargo data found in Firebase.")
+                return []
+            return cargo_data
+        except Exception as e:
+            logging.error(f"Failed to fetch cargo data: {e}")
+            return []
 
     def get_all_cases(self):
         """Получить все дела из базы данных Firebase."""
@@ -216,3 +230,7 @@ class FirebaseManager:
             return None  # Если поставщика нет и check_only=True, не добавляем
 
         return self.add_supplier({'name': name})
+    
+    def get_case_numbers(self):
+        cases = self.get_all_cases()
+        return [case_id for case_id in cases.keys()]
