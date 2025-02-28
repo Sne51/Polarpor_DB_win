@@ -1,119 +1,182 @@
-from PyQt5.QtWidgets import QTableWidgetItem, QComboBox, QDateEdit
+import logging
+from PyQt5.QtWidgets import QTableWidgetItem, QMessageBox, QComboBox, QPushButton, QTableWidget, QHeaderView
 from PyQt5.QtCore import QDate
-from src.local_data_manager import LocalDataManager
-from src.delegates import ComboBoxDelegate, QDateEditDelegate
-
+from src.delegates import QDateEditDelegate
 
 class CargoTab:
     def __init__(self, parent, firebase_manager):
         self.parent = parent
         self.firebase_manager = firebase_manager
-        self.data_manager = LocalDataManager()  # Загрузка данных из JSON
-        self.cargo_table = self.parent.cargoTable
 
-        # Загрузка данных из базы
-        self.cases = self.firebase_manager.get_all_cases() or {}
-        self.clients = self.firebase_manager.get_all_clients() or {}
-        self.managers = self.firebase_manager.get_all_managers() or []
-        self.suppliers = self.firebase_manager.get_all_suppliers() or {}
+        # Поиск виджетов по objectName из main.ui
+        self.caseNumberInput = self.parent.findChild(QComboBox, 'cargoCaseNumberInput')
+        self.supplierInput = self.parent.findChild(QComboBox, 'cargoSupplierInput')
+        self.addCargoButton = self.parent.findChild(QPushButton, 'addCargoButton')
+        self.deleteCargoButton = self.parent.findChild(QPushButton, 'deleteCargoButton')
+        self.cargoTable = self.parent.findChild(QTableWidget, 'cargoTable')
 
-        # Настройка вкладки
-        self.setup_cargo_tab()
+        missing_widgets = []
+        if self.caseNumberInput is None:
+            missing_widgets.append('cargoCaseNumberInput')
+        if self.supplierInput is None:
+            missing_widgets.append('cargoSupplierInput')
+        if self.addCargoButton is None:
+            missing_widgets.append('addCargoButton')
+        if self.deleteCargoButton is None:
+            missing_widgets.append('deleteCargoButton')
+        if self.cargoTable is None:
+            missing_widgets.append('cargoTable')
+        if missing_widgets:
+            msg = f"Отсутствуют следующие виджеты: {', '.join(missing_widgets)}"
+            logging.error(msg)
+            QMessageBox.critical(self.parent, "Ошибка", msg)
+            return
 
-    def setup_cargo_tab(self):
-        """Настройка вкладки 'Грузы'."""
+        # Загружаем данные для выпадающих списков (оставляем без изменений)
+        self.load_combobox_data()
+        # Настраиваем таблицу "Грузы"
         self.setup_cargo_table()
-        self.setup_dropdowns()
+        # Загружаем данные в таблицу
+        self.load_cargo_table()
 
-    def setup_dropdowns(self):
-        """Загрузка данных в выпадающие списки."""
-        # Заполнение выпадающего списка "Номер дела"
-        self.parent.cargoCaseNumberInput.clear()
-        self.parent.cargoCaseNumberInput.addItems(self.cases.keys())
+        # Подключаем кнопки
+        self.addCargoButton.clicked.connect(self.add_cargo)
+        self.deleteCargoButton.clicked.connect(self.delete_cargo)
 
-        # Заполнение выпадающего списка "Менеджер"
-        self.parent.cargoManagerInput.clear()
-        self.parent.cargoManagerInput.addItems(self.managers)
-
-        # Заполнение выпадающего списка "Поставщик"
-        self.parent.cargoSupplierInput.clear()
-        self.parent.cargoSupplierInput.addItems(supplier['name'] for supplier in self.suppliers.values())
-
-        # Заполнение выпадающего списка "Клиент"
-        self.parent.cargoCustomerInput.clear()
-        self.parent.cargoCustomerInput.addItems(client['name'] for client in self.clients.values())
-
-    def load_cargo_table(self):
-        """Метод для загрузки данных в таблицу."""
-        self.cargo_table.setRowCount(0)  # Очистить таблицу перед загрузкой
-        cargo_data = self.firebase_manager.get_all_cargo()  # Получаем данные из Firebase
-        for cargo in cargo_data:
-            row_position = self.cargo_table.rowCount()
-            self.cargo_table.insertRow(row_position)
-            for col_index, value in enumerate(cargo.values()):
-                self.cargo_table.setItem(row_position, col_index, QTableWidgetItem(str(value)))
+    def load_combobox_data(self):
+        try:
+            cases = self.firebase_manager.get_all_cases() or {}
+            case_numbers = [key for key, value in cases.items() if isinstance(value, dict)]
+            suppliers = self.firebase_manager.get_all_suppliers() or {}
+            supplier_names = []
+            if isinstance(suppliers, dict):
+                supplier_names = [data.get('name', '') for data in suppliers.values() if isinstance(data, dict)]
+            elif isinstance(suppliers, list):
+                supplier_names = [item.get('name', '') for item in suppliers if isinstance(item, dict)]
+            self.caseNumberInput.clear()
+            self.supplierInput.clear()
+            self.caseNumberInput.addItems(case_numbers)
+            self.supplierInput.addItems(supplier_names)
+            logging.info("Данные для выпадающих списков на вкладке 'Грузы' загружены успешно.")
+        except Exception as e:
+            logging.error(f"Ошибка загрузки данных в выпадающие списки на вкладке 'Грузы': {e}")
+            QMessageBox.critical(self.parent, "Ошибка", f"Ошибка загрузки данных: {e}")
 
     def setup_cargo_table(self):
-        """Настройка колонок и делегатов таблицы."""
-        self.cargo_table.setColumnCount(10)
-        self.cargo_table.setHorizontalHeaderLabels([
-            "Case Number", "Manager", "Client", "Supplier", "Deadline",
-            "ETD", "ETA", "TK", "Destination", "Tracking"
-        ])
+        headers = ["ID", "Case Number", "Manager", "Client", "Supplier", "Deadline", "ETD", "ETA", "TK", "Destination", "Tracking"]
+        self.cargoTable.setColumnCount(len(headers))
+        self.cargoTable.setHorizontalHeaderLabels(headers)
+        self.cargoTable.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        # Для столбцов с датами (Deadline, ETD, ETA) устанавливаем делегат с форматом dd-MM-yy
+        delegate = QDateEditDelegate(self.cargoTable, date_format="dd-MM-yy")
+        self.cargoTable.setItemDelegateForColumn(5, delegate)  # Deadline – пользователь выбирает дату вручную
+        self.cargoTable.setItemDelegateForColumn(6, delegate)  # ETD
+        self.cargoTable.setItemDelegateForColumn(7, delegate)  # ETA
 
-        # Установим редакторы для столбцов с выпадающими списками и календарем
-        self.cargo_table.setItemDelegateForColumn(4, QDateEditDelegate(self.cargo_table))  # Deadline
-        self.cargo_table.setItemDelegateForColumn(5, QDateEditDelegate(self.cargo_table))  # ETD
-        self.cargo_table.setItemDelegateForColumn(6, QDateEditDelegate(self.cargo_table))  # ETA
-        self.cargo_table.setItemDelegateForColumn(7, ComboBoxDelegate(self.cargo_table, self.data_manager.load_transport_companies()))  # TK
-        self.cargo_table.setItemDelegateForColumn(8, ComboBoxDelegate(self.cargo_table, self.data_manager.load_destinations()))  # Destination
+    def load_cargo_table(self):
+        try:
+            self.cargoTable.setRowCount(0)
+            cargo_data = self.firebase_manager.get_all_cargo() or {}
+            if isinstance(cargo_data, dict):
+                for cargo_id, cargo in cargo_data.items():
+                    if not isinstance(cargo, dict):
+                        logging.warning(f"Пропуск записи 'Грузы', так как она не является словарём: {cargo_id}")
+                        continue
+                    self.insert_cargo_row(cargo_id, cargo)
+            elif isinstance(cargo_data, list):
+                for idx, cargo in enumerate(cargo_data):
+                    if cargo is None or not isinstance(cargo, dict):
+                        logging.warning(f"Пропуск записи 'Грузы', так как она не является словарём: индекс {idx}")
+                        continue
+                    cargo_id = str(idx)
+                    self.insert_cargo_row(cargo_id, cargo)
+            else:
+                logging.error("Cargo data is not a dictionary or list.")
+            logging.info("Таблица 'Грузы' загружена.")
+        except Exception as e:
+            logging.error(f"Ошибка загрузки таблицы 'Грузы': {e}")
+            QMessageBox.critical(self.parent, "Ошибка", f"Ошибка загрузки таблицы 'Грузы': {e}")
 
-    def add_cargo_row(self, row_position):
-        """Добавляет строку в таблицу 'Грузы'."""
-        self.cargo_table.insertRow(row_position)
+    def insert_cargo_row(self, cargo_id, cargo):
+        row = self.cargoTable.rowCount()
+        self.cargoTable.insertRow(row)
+        self.cargoTable.setItem(row, 0, QTableWidgetItem(str(cargo_id)))
+        self.cargoTable.setItem(row, 1, QTableWidgetItem(str(cargo.get("case_number", ""))))
+        self.cargoTable.setItem(row, 2, QTableWidgetItem(str(cargo.get("manager", ""))))
+        self.cargoTable.setItem(row, 3, QTableWidgetItem(str(cargo.get("client", ""))))
+        self.cargoTable.setItem(row, 4, QTableWidgetItem(str(cargo.get("supplier", ""))))
+        self.cargoTable.setItem(row, 5, QTableWidgetItem(str(cargo.get("deadline", ""))))
+        self.cargoTable.setItem(row, 6, QTableWidgetItem(str(cargo.get("etd", ""))))
+        self.cargoTable.setItem(row, 7, QTableWidgetItem(str(cargo.get("eta", ""))))
+        self.cargoTable.setItem(row, 8, QTableWidgetItem(str(cargo.get("tk", ""))))
+        self.cargoTable.setItem(row, 9, QTableWidgetItem(str(cargo.get("destination", ""))))
+        self.cargoTable.setItem(row, 10, QTableWidgetItem(str(cargo.get("tracking", ""))))
 
-        # Номер заказа
-        case_selector = QComboBox()
-        case_selector.setEditable(True)
-        case_selector.addItems(self.cases.keys())
-        case_selector.currentTextChanged.connect(
-            lambda text: self.fill_cargo_row(text, row_position)
-        )
-        self.cargo_table.setCellWidget(row_position, 0, case_selector)
+    def add_cargo(self):
+        try:
+            case_number = self.caseNumberInput.currentText()
+            supplier = self.supplierInput.currentText()
+            # Для выбранного номера дела пытаемся получить данные из дел (менеджер и клиент)
+            cases = self.firebase_manager.get_all_cases() or {}
+            if case_number in cases and isinstance(cases[case_number], dict):
+                case_data = cases[case_number]
+                manager = case_data.get('name', '')
+                client = case_data.get('client_name', '')
+            else:
+                manager = ""
+                client = ""
+            # Deadline оставляем пустым – пользователь должен выбрать дату через календарь в таблице
+            deadline = ""
+            new_cargo = {
+                "case_number": case_number,
+                "manager": manager,
+                "client": client,
+                "supplier": supplier,
+                "deadline": deadline,
+                "etd": "",
+                "eta": "",
+                "tk": "",
+                "destination": "",
+                "tracking": ""
+            }
+            # Проверка на дублирование по номеру дела
+            existing_cargo = self.firebase_manager.get_all_cargo() or {}
+            for cid, cargo in existing_cargo.items():
+                if isinstance(cargo, dict) and cargo.get("case_number", "") == case_number:
+                    QMessageBox.warning(self.parent, "Внимание", f"Груз для дела {case_number} уже существует.")
+                    return
 
-        # Deadline, ETD, ETA
-        for col in range(4, 7):  # Колонки для календарей
-            date_selector = QDateEdit()
-            date_selector.setCalendarPopup(True)
-            date_selector.setDate(QDate.currentDate())  # Устанавливаем текущую дату
-            self.cargo_table.setCellWidget(row_position, col, date_selector)
+            self.firebase_manager.add_cargo(new_cargo)
+            self.load_cargo_table()
+            QMessageBox.information(self.parent, "Успех", "Груз успешно добавлен.")
+            logging.info("Груз успешно добавлен.")
+        except Exception as e:
+            logging.error(f"Ошибка при добавлении груза: {e}")
+            QMessageBox.critical(self.parent, "Ошибка", f"Не удалось добавить груз: {e}")
 
-        # TK (Транспортная компания)
-        tk_selector = QComboBox()
-        tk_selector.addItems(self.data_manager.load_transport_companies())
-        self.cargo_table.setCellWidget(row_position, 7, tk_selector)
-
-        # Пункт назначения
-        destination_selector = QComboBox()
-        destination_selector.addItems(self.data_manager.load_destinations())
-        self.cargo_table.setCellWidget(row_position, 8, destination_selector)
-
-        # Tracking
-        self.cargo_table.setItem(row_position, 9, QTableWidgetItem(""))
-
-    def fill_cargo_row(self, case_id, row_position):
-        """Автозаполнение строки таблицы 'Грузы'."""
-        case_data = self.cases.get(case_id, {})
-
-        if case_data:
-            # Менеджер
-            manager = case_data.get('manager', '')
-            self.cargo_table.setItem(row_position, 1, QTableWidgetItem(manager))
-
-            # Клиент
-            client_name = case_data.get('client_name', '')
-            self.cargo_table.setItem(row_position, 2, QTableWidgetItem(client_name))
-
-            # Поставщик
-            supplier = case_data.get('supplier', '')
-            self.cargo_table.setItem(row_position, 3, QTableWidgetItem(supplier))
+    def delete_cargo(self):
+        try:
+            selected_items = self.cargoTable.selectedItems()
+            if not selected_items:
+                QMessageBox.warning(self.parent, "Внимание", "Пожалуйста, выберите запись для удаления.")
+                return
+            row = selected_items[0].row()
+            cargo_id_item = self.cargoTable.item(row, 0)
+            if cargo_id_item is None:
+                QMessageBox.warning(self.parent, "Ошибка", "Не удалось определить ID записи.")
+                return
+            cargo_id = cargo_id_item.text()
+            reply = QMessageBox.question(
+                self.parent,
+                "Подтверждение удаления",
+                f"Удалить груз с ID {cargo_id}?",
+                QMessageBox.Yes | QMessageBox.No
+            )
+            if reply == QMessageBox.Yes:
+                self.firebase_manager.delete_cargo(cargo_id)
+                self.load_cargo_table()
+                QMessageBox.information(self.parent, "Успех", "Груз успешно удален.")
+                logging.info("Груз успешно удален.")
+        except Exception as e:
+            logging.error(f"Ошибка при удалении груза: {e}")
+            QMessageBox.critical(self.parent, "Ошибка", f"Не удалось удалить груз: {e}")
