@@ -32,7 +32,7 @@ class CargoTab:
             QMessageBox.critical(self.parent, "Ошибка", msg)
             return
 
-        # Загружаем данные для выпадающих списков (оставляем без изменений)
+        # Загружаем данные для выпадающих списков
         self.load_combobox_data()
         # Настраиваем таблицу "Грузы"
         self.setup_cargo_table()
@@ -67,11 +67,7 @@ class CargoTab:
         self.cargoTable.setColumnCount(len(headers))
         self.cargoTable.setHorizontalHeaderLabels(headers)
         self.cargoTable.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        # Для столбцов с датами (Deadline, ETD, ETA) устанавливаем делегат с форматом dd-MM-yy
-        delegate = QDateEditDelegate(self.cargoTable, date_format="dd-MM-yy")
-        self.cargoTable.setItemDelegateForColumn(5, delegate)  # Deadline – пользователь выбирает дату вручную
-        self.cargoTable.setItemDelegateForColumn(6, delegate)  # ETD
-        self.cargoTable.setItemDelegateForColumn(7, delegate)  # ETA
+        self.cargoTable.setItemDelegateForColumn(5, QDateEditDelegate(self.cargoTable))
 
     def load_cargo_table(self):
         try:
@@ -116,17 +112,18 @@ class CargoTab:
         try:
             case_number = self.caseNumberInput.currentText()
             supplier = self.supplierInput.currentText()
-            # Для выбранного номера дела пытаемся получить данные из дел (менеджер и клиент)
-            cases = self.firebase_manager.get_all_cases() or {}
-            if case_number in cases and isinstance(cases[case_number], dict):
-                case_data = cases[case_number]
-                manager = case_data.get('name', '')
-                client = case_data.get('client_name', '')
-            else:
-                manager = ""
-                client = ""
-            # Deadline оставляем пустым – пользователь должен выбрать дату через календарь в таблице
-            deadline = ""
+            # Проверка: если груз с таким номером уже существует, не даём добавить
+            existing_cargo = self.firebase_manager.get_all_cargo() or {}
+            for cargo_id, cargo in existing_cargo.items():
+                if isinstance(cargo, dict) and cargo.get("case_number", "") == case_number:
+                    QMessageBox.warning(self.parent, "Добавление груза",
+                        f"Груз с номером дела {case_number} уже существует. Повторное добавление невозможно.")
+                    return
+
+            # Оставляем поля Manager и Client пустыми, их можно задавать вручную позже
+            manager = ""
+            client = ""
+            deadline = ""  # Здесь оставляем пустым. Пользователь должен вручную выбрать дату в таблице.
             new_cargo = {
                 "case_number": case_number,
                 "manager": manager,
@@ -139,13 +136,6 @@ class CargoTab:
                 "destination": "",
                 "tracking": ""
             }
-            # Проверка на дублирование по номеру дела
-            existing_cargo = self.firebase_manager.get_all_cargo() or {}
-            for cid, cargo in existing_cargo.items():
-                if isinstance(cargo, dict) and cargo.get("case_number", "") == case_number:
-                    QMessageBox.warning(self.parent, "Внимание", f"Груз для дела {case_number} уже существует.")
-                    return
-
             self.firebase_manager.add_cargo(new_cargo)
             self.load_cargo_table()
             QMessageBox.information(self.parent, "Успех", "Груз успешно добавлен.")

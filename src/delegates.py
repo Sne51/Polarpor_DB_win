@@ -1,5 +1,7 @@
+# src/delegates.py
 from PyQt5.QtWidgets import QStyledItemDelegate, QDateEdit
 from PyQt5.QtCore import Qt, QDate
+
 
 class QDateEditDelegate(QStyledItemDelegate):
     def __init__(self, parent=None, date_format="dd-MM-yy"):
@@ -8,8 +10,8 @@ class QDateEditDelegate(QStyledItemDelegate):
 
     def createEditor(self, parent, option, index):
         editor = QDateEdit(parent)
-        editor.setDisplayFormat(self.date_format)
         editor.setCalendarPopup(True)
+        editor.setDisplayFormat(self.date_format)
         return editor
 
     def setEditorData(self, editor, index):
