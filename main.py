@@ -21,6 +21,7 @@ from src.search_functions import search_in_proforma_table, search_in_client_tabl
 from splash_screen import SplashScreen      # Подключаем SplashScreen
 from src.tabs.suppliers_tab import SuppliersTab
 from src.tabs.settings_tab import SettingsTab
+from pathlib import Path
 
 # Настройка логирования
 setup_logging()
@@ -30,7 +31,9 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         # Загружаем главный UI из файла main.ui (убедитесь, что путь корректный)
-        uic.loadUi('ui/main.ui', self)
+        APP_DIR = Path(__file__).resolve().parent
+        LOGIN_UI_PATH = APP_DIR / 'ui' / 'login.ui'
+        uic.loadUi(str(APP_DIR / 'ui' / 'main.ui'), self)   
         self.firebase_manager = FirebaseManager()
 
         self.setWindowTitle("База")
@@ -83,6 +86,12 @@ class MainWindow(QMainWindow):
         self.suppliers_tab = SuppliersTab(self, self.firebase_manager)
         self.settings_tab = SettingsTab(self, self.firebase_manager)
 
+        # Автообновление комбобоксов "Проформ" при переключении вкладок
+        for tw in self.findChildren(QTabWidget):
+            if self.proforma_tab.proformaTable and tw.isAncestorOf(self.proforma_tab.proformaTable):
+                tw.currentChanged.connect(self.on_tab_changed)
+                break
+
         # Если в вашем main.ui уже есть QTabWidget для настроек (objectName "settingsTab"), добавляем вкладку настроек
         self.settingsTabWidget = self.findChild(QTabWidget, "settingsTab")
         if self.settingsTabWidget:
@@ -120,6 +129,15 @@ class MainWindow(QMainWindow):
         self.cargo_tab.cargoTable.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.suppliers_tab.supplierTable.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
 
+    def on_tab_changed(self, _idx):
+        # Когда вкладка с таблицей проформ стала видимой — обновляем выпадающие списки
+        try:
+            if self.proforma_tab.proformaTable and self.proforma_tab.proformaTable.isVisible():
+                self.proforma_tab.load_case_numbers_for_proforma()
+                self.proforma_tab.load_managers_into_combobox()
+        except Exception as e:
+            logging.error(f"on_tab_changed error: {e}")
+
     def filter_case_names(self, text):
         self.caseNameInput.clear()
         cases = self.firebase_manager.get_all_cases()
@@ -148,12 +166,17 @@ class MainWindow(QMainWindow):
 
 
 if __name__ == "__main__":
+    APP_DIR = Path(__file__).resolve().parent
+    LOGIN_UI_PATH = APP_DIR / 'ui' / 'login.ui'
+    if not LOGIN_UI_PATH.exists():
+        logging.error(f"Файл UI не найден: {LOGIN_UI_PATH}")
+
     app = QApplication(sys.argv)
     # Применить тему Material при необходимости:
     # from qt_material import apply_stylesheet
     # apply_stylesheet(app, theme='dark_teal.xml')
 
-    login_dialog = LoginDialog()
+    login_dialog = LoginDialog(ui_file=str(LOGIN_UI_PATH))
     if login_dialog.exec_() == QDialog.Accepted:
         splash = SplashScreen(app)
         splash.show()

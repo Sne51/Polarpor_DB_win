@@ -1,67 +1,72 @@
-# src/dialogs/login_dialog.py
 import json
 import logging
-import requests
-from PyQt5.QtWidgets import QDialog, QMessageBox, QLineEdit
-from PyQt5.QtCore import QTimer
+from pathlib import Path
 from PyQt5 import uic
+from PyQt5.QtWidgets import QDialog, QMessageBox
 
-logging.basicConfig(level=logging.DEBUG)
-
-def check_internet_connection(url='http://www.google.com/', timeout=5):
-    try:
-        response = requests.head(url, timeout=timeout)
-        return True if response.status_code == 200 else False
-    except requests.ConnectionError:
-        return False
 
 class LoginDialog(QDialog):
-    def __init__(self):
-        super().__init__()
-        uic.loadUi("ui/login.ui", self)  # Обновляем путь к файлу ui
-        self.passwordInput.setEchoMode(QLineEdit.Password)
-        self.cancelButton.clicked.connect(self.reject)
+    """
+    Загружает UI из переданного файла (абсолютный путь).
+    Если ui_file не передан — ищет .../Polarpor_DB_win/ui/login.ui.
+    users.json читается по абсолютному пути из корня проекта.
+    """
+    def __init__(self, ui_file: str | None = None, parent=None):
+        super().__init__(parent)
 
-        # Устанавливаем фокус на поле логина после полной инициализации
-        QTimer.singleShot(0, self.usernameInput.setFocus)
+        # Корень проекта: .../Polarpor_DB_win
+        root_dir = Path(__file__).resolve().parents[2]
+        if ui_file is None:
+            ui_file = str(root_dir / 'ui' / 'login.ui')
 
-        # Устанавливаем порядок фокуса
-        self.setTabOrder(self.usernameInput, self.passwordInput)
-        self.setTabOrder(self.passwordInput, self.loginButton)
-        self.setTabOrder(self.loginButton, self.cancelButton)
+        try:
+            uic.loadUi(ui_file, self)
+        except Exception as e:
+            logging.error(f"Ошибка загрузки UI: {e}")
+            QMessageBox.critical(self, "Ошибка", f"Не удалось загрузить интерфейс: {e}")
+            raise
 
-        # Set the window size
-        self.resize(320, 160)  # Adjust the size as needed
+        # Элементы
+        self.usernameInput = getattr(self, "usernameInput", None)
+        self.passwordInput = getattr(self, "passwordInput", None)
+        self.loginButton = getattr(self, "loginButton", None)
+        self.cancelButton = getattr(self, "cancelButton", None)
 
-        # Increase the font size of all widgets
-        font = self.font()
-        font.setPointSize(14)  # Adjust the font size as needed
-        self.setFont(font)
+        # Пути к данным
+        self.users_file = root_dir / 'users.json'
 
-        self.passwordInput.setEchoMode(QLineEdit.Password)
-        self.loginButton.clicked.connect(self.check_credentials)
+        # Сигналы
+        if self.loginButton:
+            self.loginButton.clicked.connect(self.check_credentials)
+        if self.cancelButton:
+            self.cancelButton.clicked.connect(self.reject)
 
-    def check_credentials(self):
+    def _load_users(self) -> dict:
+        if not self.users_file.exists():
+            raise FileNotFoundError(f"Файл пользователей не найден: {self.users_file}")
+        with open(self.users_file, "r", encoding="utf-8") as f:
+            data = json.load(f) or {}
+        return data
+
+    def check_credentials(self, checked: bool = False):
         logging.debug("check_credentials called")
-        logging.debug(f"username: {self.usernameInput.text()}, password: {self.passwordInput.text()}")
+        username = self.usernameInput.text().strip() if self.usernameInput else ""
+        password = self.passwordInput.text().strip() if self.passwordInput else ""
+        logging.debug(f"username: {username}, password: {password}")
 
-        username = self.usernameInput.text()
-        password = self.passwordInput.text()
-
-        logging.debug("Checking internet connection in check_credentials")
-        if not check_internet_connection():
-            logging.debug("No internet connection detected in check_credentials")
-            QMessageBox.warning(self, 'Ошибка', 'Проверьте соединение с Интернетом')
-            return
-
-        logging.debug("Checking credentials")
-        with open('users.json', 'r') as file:
-            users = json.load(file)
+        try:
+            users = self._load_users()
             logging.debug(f"Loaded users: {users}")
-        for user in users['users']:
-            if user['username'] == username and user['password'] == password:
+            ok = False
+            for rec in users.get("users", []):
+                if rec.get("username") == username and rec.get("password") == password:
+                    ok = True
+                    break
+            if ok:
                 logging.debug("User authenticated successfully")
                 self.accept()
-                return
-        logging.debug("Incorrect username or password")
-        QMessageBox.warning(self, 'Ошибка', 'Неверные имя пользователя или пароль')
+            else:
+                QMessageBox.warning(self, "Ошибка входа", "Неверный логин или пароль")
+        except Exception as e:
+            logging.error(f"Auth error: {e}")
+            QMessageBox.critical(self, "Ошибка", f"Ошибка аутентификации: {e}")

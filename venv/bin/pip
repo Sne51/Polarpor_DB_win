@@ -1,4 +1,4 @@
-#!/Users/sk/Documents/EDU_Python/PPT_do_quick/venv/bin/python
+#!/Users/sk/Documents/EDU_Python/Polarpor_DB_win/venv/bin/python3.12
 # -*- coding: utf-8 -*-
 import re
 import sys

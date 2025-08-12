@@ -1,144 +1,216 @@
 import logging
-import json
-from PyQt5.QtWidgets import QTableWidgetItem, QMessageBox, QHeaderView, QTableWidget
-from PyQt5.QtCore import QDateTime
+from PyQt5.QtWidgets import QTableWidgetItem, QMessageBox, QHeaderView
 from src.decorators import exception_handler
 
+
 class ProformaTab:
+    """
+    Вкладка «Номера проформ» — как CaseNumbersTab:
+    работаем напрямую через атрибуты main_window (без findChild).
+    """
+
     def __init__(self, main_window, firebase_manager):
         self.main_window = main_window
         self.firebase_manager = firebase_manager
-        
-        # Добавляем атрибут proformaTable из главного окна.
-        self.proformaTable = self.main_window.findChild(QTableWidget, "proformaTable")
-        if self.proformaTable is None:
-            logging.error("Не найден виджет QTableWidget с objectName 'proformaTable'")
-            QMessageBox.critical(self.main_window, "Ошибка", "Не найден виджет таблицы проформ")
-            return
 
-        # Подключаем кнопки, если они есть (пример)
-        self.main_window.addProformaButton.clicked.connect(self.add_new_proforma)
-        self.main_window.deleteProformaButton.clicked.connect(self.confirm_delete_proforma)
+        # --- Прямой доступ к виджетам, как в CaseNumbersTab ---
+        try:
+            self.proformaTable = self.main_window.proformaTable                # QTableWidget
+            self.proformaClientInput = self.main_window.proformaClientInput    # QComboBox (номер дела)
+            self.proformaNameInput = self.main_window.proformaNameInput        # QComboBox (менеджер)
+            self.proformaCommentInput = self.main_window.proformaCommentInput  # QLineEdit
+            self.addProformaButton = self.main_window.addProformaButton        # QPushButton
+            self.deleteProformaButton = self.main_window.deleteProformaButton  # QPushButton
+        except AttributeError as e:
+            logging.error(f"[ProformaTab] Не найден атрибут UI: {e}")
 
-        self.setup_proforma_table()
+        self.setup_proforma_tab()
+
+    # -------------------- Setup --------------------
+    @exception_handler
+    def setup_proforma_tab(self):
+        # Таблица и заголовки
+        headers = ["ID", "Номер дела", "Имя", "Комментарий", "Создано"]
+        try:
+            self.proformaTable.setColumnCount(len(headers))
+            self.proformaTable.setHorizontalHeaderLabels(headers)
+            self.proformaTable.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        except Exception as e:
+            logging.error(f"[ProformaTab] Ошибка подготовки таблицы: {e}")
+
+        # Сигналы
+        try:
+            self.addProformaButton.clicked.connect(self.add_proforma)
+            self.deleteProformaButton.clicked.connect(self.delete_proforma)
+        except Exception as e:
+            logging.error(f"[ProformaTab] Ошибка подключения сигналов: {e}")
+
+        # Первая загрузка — как в CaseNumbersTab
         self.load_proforma_table_data()
-        self.load_proforma_case_numbers()
+        self.load_case_numbers_for_proforma()
         self.load_managers_into_combobox()
 
-    @exception_handler
-    def setup_proforma_table(self):
-        headers = ["Номер дела", "ID проформы", "Менеджер", "Клиент", "Комментарий", "Дата создания"]
-        self.proformaTable.setColumnCount(len(headers))
-        self.proformaTable.setHorizontalHeaderLabels(headers)
-        self.proformaTable.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+    # -------------------- Helpers --------------------
+    @staticmethod
+    def _normalize_manager_names(raw):
+        """Принимает dict/list/строки и возвращает список имён менеджеров."""
+        names = []
+        if raw is None:
+            return names
 
+        # {"managers": [...]} -> ...
+        if isinstance(raw, dict) and 'managers' in raw:
+            raw = raw.get('managers')
+
+        # dict id->{name:..} | list
+        iterable = raw.values() if isinstance(raw, dict) else (raw if isinstance(raw, list) else [])
+        for item in iterable:
+            if isinstance(item, str):
+                name = item.strip()
+            elif isinstance(item, dict):
+                name = (
+                    item.get('name')
+                    or item.get('full_name')
+                    or item.get('title')
+                    or item.get('manager')
+                    or ''
+                ).strip()
+            else:
+                name = ''
+            if name and name not in names:
+                names.append(name)
+        return names
+
+    # -------------------- Loaders --------------------
     @exception_handler
     def load_proforma_table_data(self):
-        logging.info("Loading proforma table data")
-        self.proformaTable.setRowCount(0)
-        proformas = self.firebase_manager.get_all_proformas()
-        logging.debug(f"Proformas loaded: {proformas}")
-        if proformas:
-            for proforma_id, proforma_data in proformas.items():
-                row_position = self.proformaTable.rowCount()
-                self.proformaTable.insertRow(row_position)
-                self.proformaTable.setItem(row_position, 0, QTableWidgetItem(proforma_data.get('case_number', '')))
-                self.proformaTable.setItem(row_position, 1, QTableWidgetItem(proforma_id))
-                self.proformaTable.setItem(row_position, 2, QTableWidgetItem(proforma_data.get('name', '')))
-                self.proformaTable.setItem(row_position, 3, QTableWidgetItem(proforma_data.get('client', '')))
-                self.proformaTable.setItem(row_position, 4, QTableWidgetItem(proforma_data.get('comment', '')))
-                self.proformaTable.setItem(row_position, 5, QTableWidgetItem(proforma_data.get('date_created', '')))
+        try:
+            self.proformaTable.setRowCount(0)
+        except Exception:
+            return
+
+        data = self.firebase_manager.get_all_proformas() or {}
+        logging.debug(f"Proformas loaded: {data}")
+
+        if isinstance(data, dict):
+            for pid, p in data.items():
+                if not isinstance(p, dict):
+                    continue
+                row = self.proformaTable.rowCount()
+                self.proformaTable.insertRow(row)
+                self.proformaTable.setItem(row, 0, QTableWidgetItem(str(pid)))
+                self.proformaTable.setItem(row, 1, QTableWidgetItem(str(p.get('case_number', ''))))
+                self.proformaTable.setItem(row, 2, QTableWidgetItem(str(p.get('name', ''))))
+                self.proformaTable.setItem(row, 3, QTableWidgetItem(str(p.get('comment', ''))))
+                self.proformaTable.setItem(row, 4, QTableWidgetItem(str(p.get('date_created', ''))))
         logging.info("Proforma table data loaded")
 
     @exception_handler
-    def load_proforma_case_numbers(self):
-        logging.info("Loading case numbers for proforma tab")
-        self.main_window.proformaClientInput.clear()
-        cases = self.firebase_manager.get_all_cases()
-        if cases:
-            # Извлекаем номера дел только из записей-словарей
-            case_numbers = [case_id for case_id, data in cases.items() if isinstance(data, dict)]
-            self.main_window.proformaClientInput.addItems(case_numbers)
-        logging.info("Case numbers for proforma tab loaded")
+    def load_case_numbers_for_proforma(self):
+        # ТАК ЖЕ, как в CaseNumbersTab: чистим и добавляем только числовые ID
+        try:
+            self.proformaClientInput.clear()
+        except Exception:
+            return
+
+        cases = self.firebase_manager.get_all_cases() or {}
+        case_ids = []
+        if isinstance(cases, dict):
+            case_ids = [
+                cid for cid, c in cases.items()
+                if isinstance(cid, str) and cid.isdigit() and isinstance(c, dict)
+            ]
+            case_ids.sort(key=lambda x: int(x))
+        self.proformaClientInput.addItems(case_ids)
+        logging.debug(f"Case IDs loaded into combobox: {case_ids}")
 
     @exception_handler
     def load_managers_into_combobox(self):
-        """Загружает список менеджеров в выпадающий список для проформ.
-        Список менеджеров загружается из локального файла managers.json.
-        """
-        logging.info("Loading managers into combobox for proforma tab")
-        self.main_window.proformaNameInput.clear()
         try:
-            with open("managers.json", "r", encoding="utf-8") as f:
-                data = json.load(f)
-            managers = [manager["name"] for manager in data.get("managers", []) if "name" in manager]
-            logging.debug(f"Managers loaded: {managers}")
-            self.main_window.proformaNameInput.addItems(managers)
-            logging.info("Managers loaded into combobox successfully")
-        except Exception as e:
-            logging.error(f"Error loading managers into combobox: {e}")
-            QMessageBox.critical(self.main_window, "Ошибка", f"Ошибка загрузки менеджеров: {e}")
-
-    @exception_handler
-    def add_new_proforma(self, event=None):
-        name = self.main_window.proformaNameInput.currentText().strip()
-        case_number = self.main_window.proformaClientInput.currentText().strip()
-        comment = self.main_window.proformaCommentInput.text().strip()
-        date_created = QDateTime.currentDateTime().toString("yyyy-MM-dd HH:mm:ss")
-
-        if not name or not case_number:
-            QMessageBox.warning(self.main_window, "Внимание",
-                                "Имя проформы и номер дела не могут быть пустыми")
+            self.proformaNameInput.clear()
+        except Exception:
             return
 
-        new_proforma = {
+        raw = self.firebase_manager.get_all_managers()
+        names = list(raw) if isinstance(raw, list) and all(isinstance(x, str) for x in raw) else self._normalize_manager_names(raw)
+        names_sorted = sorted(names)
+        self.proformaNameInput.addItems(names_sorted)
+        logging.debug(f"Managers loaded into combobox: {names_sorted}")
+
+    # -------------------- Actions --------------------
+    @exception_handler
+    def add_proforma(self, checked: bool = False):
+        try:
+            name = (self.proformaNameInput.currentText() or '').strip()
+            case_number = (self.proformaClientInput.currentText() or '').strip()
+            comment = (self.proformaCommentInput.text() or '').strip()
+        except Exception:
+            QMessageBox.warning(self.main_window, "Ошибка", "Элементы формы не найдены")
+            return
+
+        if not name and not case_number:
+            QMessageBox.warning(self.main_window, "Внимание", "Укажите минимум имя или номер дела")
+            return
+
+        # --- Проверка: номер дела не должен уже использоваться в другой проформе ---
+        if case_number:
+            try:
+                existing = self.firebase_manager.get_all_proformas() or {}
+                used_case_numbers = {
+                    str(p.get('case_number')).strip()
+                    for p in existing.values()
+                    if isinstance(p, dict) and p.get('case_number') is not None
+                }
+                if case_number in used_case_numbers:
+                    QMessageBox.warning(
+                        self.main_window,
+                        "Внимание",
+                        f"Номер дела {case_number} уже используется в другой проформе. "
+                        "Выберите другой номер дела."
+                    )
+                    return
+            except Exception as e:
+                logging.error(f"[ProformaTab] Ошибка проверки уникальности номера дела: {e}")
+
+        new_id = self.firebase_manager.add_proforma({
             'name': name,
             'case_number': case_number,
             'comment': comment,
-            'date_created': date_created
-        }
+        })
+        logging.info(f"Добавлена проформа: {new_id}")
+        QMessageBox.information(self.main_window, "Успех", f"Проформа добавлена успешно с ID: {new_id}")
         try:
-            proforma_id = self.firebase_manager.add_proforma(new_proforma)
-            self.load_proforma_table_data()
-            self.load_proforma_case_numbers()
-            self.load_managers_into_combobox()  # Обновляем список менеджеров
-            QMessageBox.information(self.main_window, "Успех",
-                                    f"Проформа добавлена успешно с ID: {proforma_id}")
-        except Exception as e:
-            logging.error(f"Error adding new proforma: {e}")
-            QMessageBox.critical(self.main_window, "Ошибка",
-                                 f"Ошибка при добавлении проформы: {e}")
+            self.proformaCommentInput.clear()
+        except Exception:
+            pass
+
+        # Обновление, чтобы в списках был актуал
+        self.load_proforma_table_data()
+        self.load_case_numbers_for_proforma()
+        self.load_managers_into_combobox()
 
     @exception_handler
-    def confirm_delete_proforma(self, event=None):
-        selected_items = self.proformaTable.selectedItems()
-        if not selected_items:
-            QMessageBox.warning(self.main_window, "Внимание",
-                                "Пожалуйста, выберите проформу для удаления")
+    def delete_proforma(self, checked: bool = False):
+        try:
+            row = self.proformaTable.currentRow()
+        except Exception:
+            return
+        if row < 0:
+            QMessageBox.warning(self.main_window, "Внимание", "Выберите строку для удаления")
+            return
+        id_item = self.proformaTable.item(row, 0)
+        if not id_item:
+            QMessageBox.warning(self.main_window, "Ошибка", "ID проформы не найден в строке")
+            return
+        pid = (id_item.text() or '').strip()
+        if not pid:
+            QMessageBox.warning(self.main_window, "Ошибка", "Некорректный ID проформы")
             return
 
-        row = selected_items[0].row()
-        proforma_id_item = self.proformaTable.item(row, 1)
-        if not proforma_id_item:
-            QMessageBox.warning(self.main_window, "Ошибка",
-                                "Не удалось определить ID проформы.")
-            return
+        self.firebase_manager.delete_proforma(pid)
+        logging.info(f"Проформа удалена: {pid}")
 
-        proforma_id = proforma_id_item.text()
-        response = QMessageBox.question(
-            self.main_window,
-            "Подтверждение удаления",
-            f"Вы уверены, что хотите удалить проформу с ID {proforma_id}?",
-            QMessageBox.Yes | QMessageBox.No
-        )
-        if response == QMessageBox.Yes:
-            try:
-                self.firebase_manager.delete_proforma(proforma_id)
-                self.load_proforma_table_data()
-                self.load_proforma_case_numbers()
-                QMessageBox.information(self.main_window, "Успех",
-                                        "Проформа удалена успешно")
-            except Exception as e:
-                logging.error(f"Error deleting proforma: {e}")
-                QMessageBox.critical(self.main_window, "Ошибка",
-                                     f"Ошибка при удалении проформы: {e}")
+        # Обновление после удаления
+        self.load_proforma_table_data()
+        self.load_case_numbers_for_proforma()
+        self.load_managers_into_combobox()

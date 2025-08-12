@@ -1,23 +1,24 @@
 import logging
 from PyQt5.QtWidgets import QTableWidgetItem, QMessageBox, QHeaderView, QTableWidget
-from src.decorators import exception_handler  # Убедитесь, что этот декоратор определён
+from src.decorators import exception_handler
+
 
 class ClientsTab:
     def __init__(self, main_window, firebase_manager):
         self.main_window = main_window
         self.firebase_manager = firebase_manager
 
-        # Явно ищем виджет типа QTableWidget с objectName 'clientTable'
+        # Ищем таблицу
         self.clientTable = self.main_window.findChild(QTableWidget, 'clientTable')
         if self.clientTable is None:
             logging.error("Виджет 'clientTable' не найден в интерфейсе!")
             QMessageBox.critical(self.main_window, "Ошибка", "Виджет 'clientTable' не найден в main.ui")
             return
 
-        # Подключаем кнопки (предполагается, что они тоже находятся в main.ui)
+        # Кнопки
         self.main_window.addClientButton.clicked.connect(self.add_new_client)
         self.main_window.deleteClientButton.clicked.connect(self.confirm_delete_client)
-        
+
         self.setup_client_table()
 
     @exception_handler
@@ -36,60 +37,63 @@ class ClientsTab:
         logging.debug(f"Clients loaded: {clients}")
         if clients:
             for client_id, client_data in clients.items():
+                if not isinstance(client_data, dict):
+                    logging.warning(f"Некорректная запись клиента: {client_id} -> {client_data}")
+                    continue
                 row_position = self.clientTable.rowCount()
                 self.clientTable.insertRow(row_position)
-                self.clientTable.setItem(row_position, 0, QTableWidgetItem(client_id))
+                self.clientTable.setItem(row_position, 0, QTableWidgetItem(str(client_id)))
                 self.clientTable.setItem(row_position, 1, QTableWidgetItem(client_data.get('name', '')))
         logging.info("Client table data loaded")
 
     @exception_handler
-    def add_new_client(self):
-        client_name = self.main_window.clientNameInput.text().strip()
-        if not client_name:
+    def add_new_client(self, checked: bool = False):
+        name = self.main_window.clientNameInput.text().strip()
+        if not name:
             QMessageBox.warning(self.main_window, "Внимание", "Имя клиента не может быть пустым")
             return
 
-        # Проверка на дублирование клиента (предполагается, что метод check_and_add_client возвращает существующий ID, если клиент уже есть)
-        existing_client_id = self.firebase_manager.check_and_add_client(client_name, check_only=True)
-        if existing_client_id:
+        # Проверяем, есть ли уже клиент с таким именем
+        existing_id = self.firebase_manager.check_and_add_client(client_name=name, check_only=True)
+        if existing_id:
             QMessageBox.warning(self.main_window, "Внимание",
-                                f"Клиент с таким именем уже существует. Его ID: {existing_client_id}")
+                                f"Клиент с таким именем уже существует (ID: {existing_id}).")
             return
 
         try:
-            new_client_id = self.firebase_manager.add_client(client_name)
+            new_client_id = self.firebase_manager.add_client(name)
             logging.debug(f"New client ID: {new_client_id}")
             self.load_client_table_data()
-            QMessageBox.information(self.main_window, "Успех", f"Клиент добавлен успешно с ID: {new_client_id}")
+            QMessageBox.information(self.main_window, "Успех", f"Клиент добавлен. ID: {new_client_id}")
         except Exception as e:
             logging.error(f"Error adding new client: {e}")
             QMessageBox.critical(self.main_window, "Ошибка", f"Ошибка при добавлении клиента: {e}")
 
     @exception_handler
-    def confirm_delete_client(self):
+    def confirm_delete_client(self, checked: bool = False):
         selected_items = self.clientTable.selectedItems()
         if not selected_items:
             QMessageBox.warning(self.main_window, "Внимание", "Пожалуйста, выберите клиента для удаления")
             return
 
         row = selected_items[0].row()
-        client_id_item = self.clientTable.item(row, 0)
-        if client_id_item is None:
+        id_item = self.clientTable.item(row, 0)
+        if id_item is None:
             QMessageBox.warning(self.main_window, "Ошибка", "Не удалось определить ID клиента.")
             return
 
-        client_id = client_id_item.text()
-        response = QMessageBox.question(
+        client_id = id_item.text()
+        resp = QMessageBox.question(
             self.main_window,
             "Подтверждение удаления",
-            f"Вы уверены, что хотите удалить клиента с ID {client_id}?",
+            f"Удалить клиента с ID {client_id}?",
             QMessageBox.Yes | QMessageBox.No
         )
-        if response == QMessageBox.Yes:
+        if resp == QMessageBox.Yes:
             try:
                 self.firebase_manager.delete_client(client_id)
                 self.load_client_table_data()
-                QMessageBox.information(self.main_window, "Успех", "Клиент удален успешно")
+                QMessageBox.information(self.main_window, "Успех", "Клиент удалён")
             except Exception as e:
                 logging.error(f"Error deleting client: {e}")
                 QMessageBox.critical(self.main_window, "Ошибка", f"Ошибка при удалении клиента: {e}")

@@ -27,7 +27,7 @@ wheels/
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
-#  before PyInstaller builds the exe, so as to inject date/other infos into it.
+#  before PyInstaller builds the exe, so as to inject date/other infos into the exe.
 *.manifest
 *.spec
 
@@ -81,3 +81,20 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# ---- ДОБАВЛЕНО ----
+# Локальные конфиги и ключи Firebase
+config/firebase_credentials.json
+config/*.key
+config/*.pem
+
+# Логи приложения
+*.log
+
+# Локальные настройки IDE
+.vscode/
+.idea/
+
+# OS-специфичные
+.DS_Store
+Thumbs.db
