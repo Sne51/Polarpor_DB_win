@@ -1,172 +1,285 @@
+# /Users/sk/Documents/EDU_Python/Polarpor_DB_win/src/tabs/cargo_tab.py
 import logging
-from PyQt5.QtWidgets import QTableWidgetItem, QMessageBox, QComboBox, QPushButton, QTableWidget, QHeaderView
-from PyQt5.QtCore import QDate
-from src.delegates import QDateEditDelegate
+from typing import Dict, Any
 
-class CargoTab:
-    def __init__(self, parent, firebase_manager):
-        self.parent = parent
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QColor
+from PyQt5.QtWidgets import (
+    QWidget,
+    QTableWidgetItem,
+    QMessageBox,
+    QHeaderView,
+    QComboBox,
+)
+
+from src.decorators import exception_handler
+
+
+class CargoTab(QWidget):
+    STREAM_NAME = "cargo_stream"
+
+    TK_OPTIONS = ["DHL", "TNT/FedEx", "UPS", "Bring/Posten", "Dachser", "Schenker", "DPD"]
+    STATUS_OPTIONS = ["Заказано", "Поехало", "Приехало", "Вопрос"]
+
+    STATUS_COLORS = {
+        "Заказано": QColor(255, 255, 150),   # жёлтый
+        "Поехало": QColor(200, 150, 255),    # фиолетовый
+        "Приехало": QColor(150, 255, 150),   # зелёный
+        "Вопрос": QColor(255, 150, 150),     # красный
+    }
+
+    COL_ID = 0
+    COL_ORDER = 1
+    COL_CUSTOMER = 2
+    COL_SUPPLIER = 3
+    COL_MANAGER = 4
+    COL_DEADLINE = 5
+    COL_TK = 6
+    COL_TRACKING = 7
+    COL_STATUS = 8
+
+    def __init__(self, main_window, firebase_manager):
+        super().__init__(parent=main_window)
+        self.main_window = main_window
         self.firebase_manager = firebase_manager
 
-        # Поиск виджетов по objectName из main.ui
-        self.caseNumberInput = self.parent.findChild(QComboBox, 'cargoCaseNumberInput')
-        self.supplierInput = self.parent.findChild(QComboBox, 'cargoSupplierInput')
-        self.addCargoButton = self.parent.findChild(QPushButton, 'addCargoButton')
-        self.deleteCargoButton = self.parent.findChild(QPushButton, 'deleteCargoButton')
-        self.cargoTable = self.parent.findChild(QTableWidget, 'cargoTable')
+        self.cargoTable = self.main_window.cargoTable
+        self.addCargoButton = getattr(self.main_window, "addCargoButton", None)
+        self.deleteCargoButton = getattr(self.main_window, "deleteCargoButton", None)
 
-        missing_widgets = []
-        if self.caseNumberInput is None:
-            missing_widgets.append('cargoCaseNumberInput')
-        if self.supplierInput is None:
-            missing_widgets.append('cargoSupplierInput')
-        if self.addCargoButton is None:
-            missing_widgets.append('addCargoButton')
-        if self.deleteCargoButton is None:
-            missing_widgets.append('deleteCargoButton')
-        if self.cargoTable is None:
-            missing_widgets.append('cargoTable')
-        if missing_widgets:
-            msg = f"Отсутствуют следующие виджеты: {', '.join(missing_widgets)}"
-            logging.error(msg)
-            QMessageBox.critical(self.parent, "Ошибка", msg)
-            return
+        self.cargoCaseNumberInput = getattr(self.main_window, "cargoCaseNumberInput", None)
+        self.cargoSupplierInput = getattr(self.main_window, "cargoSupplierInput", None)
 
-        # Загружаем данные для выпадающих списков
-        self.load_combobox_data()
-        # Настраиваем таблицу "Грузы"
-        self.setup_cargo_table()
-        # Загружаем данные в таблицу
-        self.load_cargo_table()
+        self._mute = False
 
-        # Подключаем кнопки
-        self.addCargoButton.clicked.connect(self.add_cargo)
-        self.deleteCargoButton.clicked.connect(self.delete_cargo)
+        self._setup_ui()
+        self._connect_signals()
 
-    def load_combobox_data(self):
-        try:
-            cases = self.firebase_manager.get_all_cases() or {}
-            case_numbers = [key for key, value in cases.items() if isinstance(value, dict)]
-            suppliers = self.firebase_manager.get_all_suppliers() or {}
-            supplier_names = []
-            if isinstance(suppliers, dict):
-                supplier_names = [data.get('name', '') for data in suppliers.values() if isinstance(data, dict)]
-            elif isinstance(suppliers, list):
-                supplier_names = [item.get('name', '') for item in suppliers if isinstance(item, dict)]
-            self.caseNumberInput.clear()
-            self.supplierInput.clear()
-            self.caseNumberInput.addItems(case_numbers)
-            self.supplierInput.addItems(supplier_names)
-            logging.info("Данные для выпадающих списков на вкладке 'Грузы' загружены успешно.")
-        except Exception as e:
-            logging.error(f"Ошибка загрузки данных в выпадающие списки на вкладке 'Грузы': {e}")
-            QMessageBox.critical(self.parent, "Ошибка", f"Ошибка загрузки данных: {e}")
-
-    def setup_cargo_table(self):
-        headers = ["ID", "Case Number", "Manager", "Client", "Supplier", "Deadline", "ETD", "ETA", "TK", "Destination", "Tracking"]
+    def _setup_ui(self):
+        headers = [
+            "ID", "Номер дела", "Клиент", "Поставщик",
+            "Менеджер", "Дедлайн", "ТК", "Tracking", "Статус"
+        ]
         self.cargoTable.setColumnCount(len(headers))
         self.cargoTable.setHorizontalHeaderLabels(headers)
         self.cargoTable.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self.cargoTable.setItemDelegateForColumn(5, QDateEditDelegate(self.cargoTable))
+        self.cargoTable.itemChanged.connect(self._on_item_changed)
 
-    def load_cargo_table(self):
+    def _connect_signals(self):
+        if self.addCargoButton:
+            self.addCargoButton.clicked.connect(self.add_cargo)
+        if self.deleteCargoButton:
+            self.deleteCargoButton.clicked.connect(self.delete_cargo)
+
+    def activate(self):
+        try:
+            self.load_cargo_table_data()
+            self._load_case_numbers_into_top_combobox()
+            self._load_suppliers_into_top_combobox()
+        except Exception as e:
+            logging.debug(f"[CargoTab] activate preload error: {e}")
+        self.firebase_manager.on("/cargo", self._on_stream_event, name=self.STREAM_NAME)
+
+    def deactivate(self):
+        self.firebase_manager.off(self.STREAM_NAME)
+
+    @exception_handler
+    def load_cargo_table_data(self):
+        data = self.firebase_manager.get_all_cargo()
+        self._mute = True
         try:
             self.cargoTable.setRowCount(0)
-            cargo_data = self.firebase_manager.get_all_cargo() or {}
-            if isinstance(cargo_data, dict):
-                for cargo_id, cargo in cargo_data.items():
-                    if not isinstance(cargo, dict):
-                        logging.warning(f"Пропуск записи 'Грузы', так как она не является словарём: {cargo_id}")
-                        continue
-                    self.insert_cargo_row(cargo_id, cargo)
-            elif isinstance(cargo_data, list):
-                for idx, cargo in enumerate(cargo_data):
-                    if cargo is None or not isinstance(cargo, dict):
-                        logging.warning(f"Пропуск записи 'Грузы', так как она не является словарём: индекс {idx}")
-                        continue
-                    cargo_id = str(idx)
-                    self.insert_cargo_row(cargo_id, cargo)
-            else:
-                logging.error("Cargo data is not a dictionary or list.")
-            logging.info("Таблица 'Грузы' загружена.")
-        except Exception as e:
-            logging.error(f"Ошибка загрузки таблицы 'Грузы': {e}")
-            QMessageBox.critical(self.parent, "Ошибка", f"Ошибка загрузки таблицы 'Грузы': {e}")
+            if isinstance(data, list):
+                for idx, item in enumerate(data):
+                    if isinstance(item, dict):
+                        self._upsert_row(str(idx), item)
+            elif isinstance(data, dict):
+                for cid, item in data.items():
+                    if isinstance(item, dict):
+                        self._upsert_row(str(cid), item)
+        finally:
+            self._mute = False
 
-    def insert_cargo_row(self, cargo_id, cargo):
-        row = self.cargoTable.rowCount()
-        self.cargoTable.insertRow(row)
-        self.cargoTable.setItem(row, 0, QTableWidgetItem(str(cargo_id)))
-        self.cargoTable.setItem(row, 1, QTableWidgetItem(str(cargo.get("case_number", ""))))
-        self.cargoTable.setItem(row, 2, QTableWidgetItem(str(cargo.get("manager", ""))))
-        self.cargoTable.setItem(row, 3, QTableWidgetItem(str(cargo.get("client", ""))))
-        self.cargoTable.setItem(row, 4, QTableWidgetItem(str(cargo.get("supplier", ""))))
-        self.cargoTable.setItem(row, 5, QTableWidgetItem(str(cargo.get("deadline", ""))))
-        self.cargoTable.setItem(row, 6, QTableWidgetItem(str(cargo.get("etd", ""))))
-        self.cargoTable.setItem(row, 7, QTableWidgetItem(str(cargo.get("eta", ""))))
-        self.cargoTable.setItem(row, 8, QTableWidgetItem(str(cargo.get("tk", ""))))
-        self.cargoTable.setItem(row, 9, QTableWidgetItem(str(cargo.get("destination", ""))))
-        self.cargoTable.setItem(row, 10, QTableWidgetItem(str(cargo.get("tracking", ""))))
+    @exception_handler
+    def _load_case_numbers_into_top_combobox(self):
+        if not self.cargoCaseNumberInput:
+            return
+        self.cargoCaseNumberInput.clear()
+        cases = self.firebase_manager.get_all_cases() or {}
+        ids = [cid for cid in cases.keys() if isinstance(cid, str) and cid.isdigit()]
+        ids.sort(key=lambda x: int(x))
+        self.cargoCaseNumberInput.addItems(ids)
 
-    def add_cargo(self):
+    @exception_handler
+    def _load_suppliers_into_top_combobox(self):
+        if not self.cargoSupplierInput:
+            return
+        self.cargoSupplierInput.clear()
+        suppliers = self.firebase_manager.get_all_suppliers()
+        names = []
+        if isinstance(suppliers, dict):
+            for v in suppliers.values():
+                if isinstance(v, dict):
+                    nm = (v.get("name") or "").strip()
+                    if nm:
+                        names.append(nm)
+        elif isinstance(suppliers, list):
+            for v in suppliers:
+                if isinstance(v, dict):
+                    nm = (v.get("name") or "").strip()
+                    if nm:
+                        names.append(nm)
+        self.cargoSupplierInput.addItems(sorted(set(names)))
+
+    @exception_handler
+    def add_cargo(self, checked=False):
+        order = (self.cargoCaseNumberInput.currentText() if self.cargoCaseNumberInput else "").strip()
+        supplier = (self.cargoSupplierInput.currentText() if self.cargoSupplierInput else "").strip()
+        new_data = {
+            "order": order,
+            "customer": "",
+            "supplier": supplier,
+            "manager": "",
+            "deadline": "",
+            "tk": self.TK_OPTIONS[0],
+            "tracking": "",
+            "status": self.STATUS_OPTIONS[0],
+        }
+        new_id = self.firebase_manager.add_cargo(new_data)
+        self._upsert_row(new_id, new_data)
+
+    @exception_handler
+    def delete_cargo(self, checked=False):
+        row = self.cargoTable.currentRow()
+        if row < 0:
+            return
+        id_item = self.cargoTable.item(row, self.COL_ID)
+        if not id_item:
+            return
+        cid = id_item.text().strip()
+        if not cid:
+            return
+        self.firebase_manager.delete_cargo(cid)
+        self.cargoTable.removeRow(row)
+
+    def _on_stream_event(self, payload: Dict[str, Any]):
         try:
-            case_number = self.caseNumberInput.currentText()
-            supplier = self.supplierInput.currentText()
-            # Проверка: если груз с таким номером уже существует, не даём добавить
-            existing_cargo = self.firebase_manager.get_all_cargo() or {}
-            for cargo_id, cargo in existing_cargo.items():
-                if isinstance(cargo, dict) and cargo.get("case_number", "") == case_number:
-                    QMessageBox.warning(self.parent, "Добавление груза",
-                        f"Груз с номером дела {case_number} уже существует. Повторное добавление невозможно.")
+            path = payload.get("path")
+            data = payload.get("data")
+            self._mute = True
+            try:
+                if path == "/" and isinstance(data, dict):
+                    self.cargoTable.setRowCount(0)
+                    for cid, c in data.items():
+                        if isinstance(c, dict):
+                            self._upsert_row(str(cid), c)
                     return
-
-            # Оставляем поля Manager и Client пустыми, их можно задавать вручную позже
-            manager = ""
-            client = ""
-            deadline = ""  # Здесь оставляем пустым. Пользователь должен вручную выбрать дату в таблице.
-            new_cargo = {
-                "case_number": case_number,
-                "manager": manager,
-                "client": client,
-                "supplier": supplier,
-                "deadline": deadline,
-                "etd": "",
-                "eta": "",
-                "tk": "",
-                "destination": "",
-                "tracking": ""
-            }
-            self.firebase_manager.add_cargo(new_cargo)
-            self.load_cargo_table()
-            QMessageBox.information(self.parent, "Успех", "Груз успешно добавлен.")
-            logging.info("Груз успешно добавлен.")
+                if isinstance(path, str) and path.startswith("/") and len(path) > 1:
+                    cid = path[1:]
+                    if data is None:
+                        self._remove_row_by_id(cid)
+                    elif isinstance(data, dict):
+                        self._upsert_row(cid, data)
+            finally:
+                self._mute = False
         except Exception as e:
-            logging.error(f"Ошибка при добавлении груза: {e}")
-            QMessageBox.critical(self.parent, "Ошибка", f"Не удалось добавить груз: {e}")
+            logging.debug(f"[CargoTab] stream event error: {e}")
 
-    def delete_cargo(self):
-        try:
-            selected_items = self.cargoTable.selectedItems()
-            if not selected_items:
-                QMessageBox.warning(self.parent, "Внимание", "Пожалуйста, выберите запись для удаления.")
+    def _on_item_changed(self, item: QTableWidgetItem):
+        if self._mute:
+            return
+        row = item.row()
+        col = item.column()
+        id_item = self.cargoTable.item(row, self.COL_ID)
+        if not id_item:
+            return
+        cid = id_item.text().strip()
+        if not cid:
+            return
+        key_map = {
+            self.COL_ORDER: "order",
+            self.COL_CUSTOMER: "customer",
+            self.COL_SUPPLIER: "supplier",
+            self.COL_MANAGER: "manager",
+            self.COL_DEADLINE: "deadline",
+            self.COL_TRACKING: "tracking",
+        }
+        key = key_map.get(col)
+        if not key:
+            return
+        value = item.text()
+        self.firebase_manager.cargo_ref.child(cid).update({key: value})
+
+    def _find_row_by_id(self, cid: str) -> int:
+        for r in range(self.cargoTable.rowCount()):
+            it = self.cargoTable.item(r, self.COL_ID)
+            if it and it.text() == cid:
+                return r
+        return -1
+
+    def _remove_row_by_id(self, cid: str):
+        r = self._find_row_by_id(cid)
+        if r >= 0:
+            self.cargoTable.removeRow(r)
+
+    def _upsert_row(self, cid: str, c: Dict[str, Any]):
+        row = self._find_row_by_id(cid)
+        if row == -1:
+            row = self.cargoTable.rowCount()
+            self.cargoTable.insertRow(row)
+
+        def _set(col: int, val: str):
+            it = QTableWidgetItem(val if val is not None else "")
+            if col == self.COL_ID:
+                it.setFlags(it.flags() & ~Qt.ItemIsEditable)
+            self.cargoTable.setItem(row, col, it)
+
+        _set(self.COL_ID, str(cid))
+        _set(self.COL_ORDER, str(c.get("order", "")))
+        _set(self.COL_CUSTOMER, str(c.get("customer", "")))
+        _set(self.COL_SUPPLIER, str(c.get("supplier", "")))
+        _set(self.COL_MANAGER, str(c.get("manager", "")))
+        _set(self.COL_DEADLINE, str(c.get("deadline", "")))
+        _set(self.COL_TRACKING, str(c.get("tracking", "")))
+
+        tk_combo = self._make_combo(self.TK_OPTIONS, (c.get("tk") or "").strip(), cid, "tk")
+        self.cargoTable.setCellWidget(row, self.COL_TK, tk_combo)
+
+        status_combo = self._make_combo(self.STATUS_OPTIONS, (c.get("status") or "").strip(), cid, "status")
+        self.cargoTable.setCellWidget(row, self.COL_STATUS, status_combo)
+
+        self._color_row_by_status(row, c.get("status", ""))
+
+    def _make_combo(self, options, current_value: str, cargo_id: str, key: str) -> QComboBox:
+        combo = QComboBox(self.cargoTable)
+        combo.addItems(options)
+        idx = next((i for i, v in enumerate(options) if v == current_value), 0)
+        combo.setCurrentIndex(idx)
+        combo.setProperty("cargo_id", cargo_id)
+        combo.setProperty("cargo_key", key)
+
+        def on_changed(_index: int):
+            if self._mute:
                 return
-            row = selected_items[0].row()
-            cargo_id_item = self.cargoTable.item(row, 0)
-            if cargo_id_item is None:
-                QMessageBox.warning(self.parent, "Ошибка", "Не удалось определить ID записи.")
-                return
-            cargo_id = cargo_id_item.text()
-            reply = QMessageBox.question(
-                self.parent,
-                "Подтверждение удаления",
-                f"Удалить груз с ID {cargo_id}?",
-                QMessageBox.Yes | QMessageBox.No
-            )
-            if reply == QMessageBox.Yes:
-                self.firebase_manager.delete_cargo(cargo_id)
-                self.load_cargo_table()
-                QMessageBox.information(self.parent, "Успех", "Груз успешно удален.")
-                logging.info("Груз успешно удален.")
-        except Exception as e:
-            logging.error(f"Ошибка при удалении груза: {e}")
-            QMessageBox.critical(self.parent, "Ошибка", f"Не удалось удалить груз: {e}")
+            cid = combo.property("cargo_id")
+            k = combo.property("cargo_key")
+            val = combo.currentText()
+            self.firebase_manager.cargo_ref.child(str(cid)).update({str(k): val})
+            if k == "status":
+                row = self._find_row_by_id(cid)
+                if row >= 0:
+                    self._color_row_by_status(row, val)
+
+        combo.currentIndexChanged.connect(on_changed)
+        return combo
+
+    def _color_row_by_status(self, row: int, status: str):
+        color = self.STATUS_COLORS.get(status)
+        if not color:
+            return
+        for col in range(self.cargoTable.columnCount()):
+            item = self.cargoTable.item(row, col)
+            if not item:
+                item = QTableWidgetItem("")
+                self.cargoTable.setItem(row, col, item)
+            item.setBackground(color)

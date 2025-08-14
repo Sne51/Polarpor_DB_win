@@ -1,22 +1,53 @@
+# src/firebase_manager.py
 import os
 import json
 import logging
 from pathlib import Path
+from typing import Callable, Dict, Any, Optional
+import threading
+from uuid import uuid4
+import time
+
+import requests
 from firebase_admin import credentials, initialize_app, db
+
+# --- Realtime (SSE) ---
+try:
+    from sseclient import SSEClient  # pip install sseclient-py
+except Exception:
+    SSEClient = None
+
+# --- OAuth2 для service account токена ---
+try:
+    from google.oauth2 import service_account
+    from google.auth.transport.requests import Request as GARequest
+except Exception:
+    service_account = None
+    GARequest = None
 
 
 class FirebaseManager:
     """
-    Менеджер Firebase для RTDB.
+    Менеджер Firebase для RTDB + SSE подписок (on/off).
     """
+
+    # OAuth2 scope для доступа к RTDB от имени service account
+    _SCOPES = (
+        "https://www.googleapis.com/auth/firebase.database",
+        "https://www.googleapis.com/auth/userinfo.email",
+    )
 
     def __init__(self):
         # Корень проекта
         self.ROOT_DIR = Path(__file__).resolve().parents[1]
 
-        # Поиск cred-файла
+        # ---- Креды ----
         cred_path_env = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-        cred_path = Path(cred_path_env) if cred_path_env else self.ROOT_DIR / "config" / "firebase_credentials.json"
+        cred_path = (
+            Path(cred_path_env)
+            if cred_path_env
+            else self.ROOT_DIR / "config" / "firebase_credentials.json"
+        )
         if not cred_path.exists():
             candidates = (
                 list(self.ROOT_DIR.glob("*firebase*admin*.json"))
@@ -27,12 +58,14 @@ class FirebaseManager:
                 cred_path = candidates[0]
             else:
                 raise FileNotFoundError(
-                    f"Firebase credentials file not found. "
+                    "Firebase credentials file not found. "
                     f"Ожидался: {self.ROOT_DIR / 'config' / 'firebase_credentials.json'} "
-                    f"или укажи GOOGLE_APPLICATION_CREDENTIALS."
+                    "или укажи GOOGLE_APPLICATION_CREDENTIALS."
                 )
 
         logging.info(f"Using Firebase credentials: {cred_path}")
+
+        # ---- Admin SDK RTDB ----
         cred = credentials.Certificate(str(cred_path))
         initialize_app(
             cred,
@@ -41,7 +74,10 @@ class FirebaseManager:
             },
         )
 
-        # RTDB references
+        # Базовый URL БД (без завершающего '/')
+        self.base_url = "https://polapordb-default-rtdb.asia-southeast1.firebasedatabase.app"
+
+        # RTDB references (Admin SDK)
         self.cases_ref = db.reference("cases")
         self.clients_ref = db.reference("clients")
         self.proformas_ref = db.reference("proformas")
@@ -50,6 +86,59 @@ class FirebaseManager:
 
         # Локальные файлы
         self.managers_file = self.ROOT_DIR / "managers.json"
+
+        # HTTP-сессия и подписки
+        self._session = requests.Session()
+        self._streams: Dict[str, Dict[str, Any]] = {}
+
+        # Готовим креды для получения access_token
+        self._cred_file = str(cred_path)
+        self._creds = None
+        self._access_token: Optional[str] = None
+        self._token_expiry_ts: float = 0.0  # unix ts
+
+        if service_account is None:
+            logging.warning(
+                "google-auth не найден — realtime через SSE работать не сможет. "
+                "Установи: pip install google-auth"
+            )
+
+        # Предварительно получим токен (не критично, но ускоряет первую подписку)
+        try:
+            self._ensure_access_token()
+        except Exception as e:
+            logging.warning(f"Access token init warning: {e}")
+
+    # ===================== ВСПОМОГАТЕЛЬНОЕ: OAuth2 =====================
+
+    def _ensure_access_token(self, min_ttl: int = 60) -> str:
+        """
+        Возвращает валидный access token; обновляет, если истёк.
+        min_ttl — минимальный оставшийся срок жизни токена (сек), при котором мы считаем его «годным».
+        """
+        now = time.time()
+        if self._access_token and (self._token_expiry_ts - now) > min_ttl:
+            return self._access_token
+
+        if service_account is None or GARequest is None:
+            raise RuntimeError(
+                "google-auth не установлен. Установи: pip install google-auth"
+            )
+
+        if self._creds is None:
+            self._creds = service_account.Credentials.from_service_account_file(
+                self._cred_file,
+                scopes=list(self._SCOPES),
+            )
+
+        if not self._creds.valid or self._creds.expired:
+            self._creds.refresh(GARequest())
+
+        # google-auth сам хранит expiry (datetime). Переведём в ts.
+        self._access_token = self._creds.token
+        expiry_dt = getattr(self._creds, "expiry", None)
+        self._token_expiry_ts = expiry_dt.timestamp() if expiry_dt else now + 300
+        return self._access_token
 
     # ===================== УТИЛИТЫ =====================
 
@@ -272,7 +361,84 @@ class FirebaseManager:
                 return []
             with open(self.managers_file, "r", encoding="utf-8") as f:
                 data = json.load(f) or {}
-            return [m["name"] for m in data.get("managers", []) if isinstance(m, dict) and "name" in m]
+            return [
+                m["name"]
+                for m in data.get("managers", [])
+                if isinstance(m, dict) and "name" in m
+            ]
         except Exception as e:
             logging.error(f"get_all_managers: {e}")
             return []
+
+    # ===================== REALTIME (SSE) =====================
+
+    def on(self, path: str, callback: Callable[[str], None]) -> str:
+        """
+        Подписка на события RTDB узла (например 'proformas', 'cases', 'suppliers').
+        Возвращает token; передай его в off(token), чтобы отписаться.
+        callback получает raw JSON-строку события (event.data).
+        """
+        if SSEClient is None:
+            raise RuntimeError(
+                "sseclient-py не установлен. Установи: pip install sseclient-py"
+            )
+
+        token = uuid4().hex
+        stop_event = threading.Event()
+
+        # Собираем URL вида:
+        # https://<db>/<path>.json?access_token=<oauth2>
+        def _make_url() -> str:
+            base = self.base_url.rstrip("/")
+            access_token = self._ensure_access_token()
+            return f"{base}/{path}.json?access_token={access_token}"
+
+        def _worker():
+            while not stop_event.is_set():
+                url = _make_url()
+                try:
+                    with self._session.get(
+                        url,
+                        headers={"Accept": "text/event-stream", "User-Agent": "Polarpor-Client/1.0"},
+                        stream=True,
+                        timeout=(10, 310),  # connect, read
+                    ) as resp:
+                        if resp.status_code >= 400:
+                            body = ""
+                            try:
+                                body = resp.text[:200]
+                            except Exception:
+                                pass
+                            logging.error(f"[RTDB stream] HTTP {resp.status_code}: {body}")
+                            # возможно истёк токен — форсируем обновление перед ретраем
+                            self._token_expiry_ts = 0
+                            stop_event.wait(2)
+                            continue
+
+                        client = SSEClient(resp)
+                        for event in client.events():
+                            if stop_event.is_set():
+                                break
+                            evtype = (event.event or "").lower()
+                            if evtype in ("put", "patch", "message", ""):
+                                try:
+                                    callback(event.data)
+                                except Exception as cb_e:
+                                    logging.error(f"[RTDB stream] callback error: {cb_e}")
+                except Exception as e:
+                    logging.error(f"[RTDB stream] connection error: {e}")
+                    # В случае сетевого обрыва — подождём и переподключимся
+                    stop_event.wait(2)
+
+        th = threading.Thread(target=_worker, name=f"rtdb-{path}-{token}", daemon=True)
+        th.start()
+        self._streams[token] = {"thread": th, "stop": stop_event}
+        return token
+
+    def off(self, token: str) -> None:
+        """Отключить подписку, полученную через on()."""
+        info = self._streams.pop(token, None)
+        if not info:
+            return
+        info["stop"].set()
+        # Поток сам завершится на ближайшей итерации.

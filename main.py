@@ -1,201 +1,339 @@
+# /Users/sk/Documents/EDU_Python/Polarpor_DB_win/main.py
 import sys
-import json
 import logging
-import requests
+from pathlib import Path
 
-from PyQt5.QtWidgets import (QApplication, QMainWindow, QDialog, QTableWidgetItem,
-                             QMessageBox, QSplashScreen, QComboBox, QHeaderView, QLabel,
-                             QLineEdit, QPushButton, QTableWidget, QTabWidget)
-from PyQt5.QtCore import Qt, QTimer, QDateTime, QEvent
-from PyQt5.QtGui import QPixmap, QScreen, QColor
 from PyQt5 import uic
+from PyQt5.QtCore import Qt, QTimer, QEvent
+from PyQt5.QtGui import QPixmap
+from PyQt5.QtWidgets import (
+    QApplication, QMainWindow, QDialog, QComboBox, QLineEdit, QPushButton,
+    QTableWidget, QTableWidgetItem, QHeaderView, QMessageBox, QTabWidget
+)
+
 from config.logging_config import setup_logging
 from src.firebase_manager import FirebaseManager
-# from qt_material import apply_stylesheet  # Если требуется тема Material
+
+# Таб-классы
 from src.tabs.case_numbers_tab import CaseNumbersTab
 from src.tabs.proforma_tab import ProformaTab
 from src.tabs.clients_tab import ClientsTab
-from src.tabs.cargo_tab import CargoTab    # Подключаем вкладку "Грузы"
-from src.dialogs.login_dialog import LoginDialog
-from src.search_functions import search_in_proforma_table, search_in_client_table, search_in_case_table
-from splash_screen import SplashScreen      # Подключаем SplashScreen
+from src.tabs.cargo_tab import CargoTab
 from src.tabs.suppliers_tab import SuppliersTab
 from src.tabs.settings_tab import SettingsTab
-from pathlib import Path
 
-# Настройка логирования
+from src.dialogs.login_dialog import LoginDialog
+from src.search_functions import (
+    search_in_proforma_table, search_in_client_table, search_in_case_table
+)
+from splash_screen import SplashScreen
+
+
+# ---------- Логирование ----------
 setup_logging()
 
 
 class MainWindow(QMainWindow):
+    """
+    Главное окно:
+    - Загружает main.ui
+    - Инициализирует вкладки
+    - Делает вкладки «ленивыми» (activate/deactivate)
+    - Реализует поиск и resize таблиц
+    """
+
     def __init__(self):
         super().__init__()
-        # Загружаем главный UI из файла main.ui (убедитесь, что путь корректный)
-        APP_DIR = Path(__file__).resolve().parent
-        LOGIN_UI_PATH = APP_DIR / 'ui' / 'login.ui'
-        uic.loadUi(str(APP_DIR / 'ui' / 'main.ui'), self)   
-        self.firebase_manager = FirebaseManager()
+
+        app_dir = Path(__file__).resolve().parent
+        ui_main = app_dir / 'ui' / 'main.ui'
+        if not ui_main.exists():
+            logging.error(f"UI main.ui не найден: {ui_main}")
+        uic.loadUi(str(ui_main), self)
 
         self.setWindowTitle("База")
 
-        # Инициализация виджетов, находящихся в главном окне
-        self.caseNameInput = self.findChild(QComboBox, 'caseNameInput')
-        self.clientInput = self.findChild(QComboBox, 'clientInput')
-        self.addCaseButton = self.findChild(QPushButton, 'addCaseButton')
-        self.deleteCaseButton = self.findChild(QPushButton, 'deleteCaseButton')
-        self.proformaClientInput = self.findChild(QComboBox, 'proformaClientInput')
-        self.proformaNameInput = self.findChild(QComboBox, 'proformaNameInput')
-        self.addProformaButton = self.findChild(QPushButton, 'addProformaButton')
-        self.deleteProformaButton = self.findChild(QPushButton, 'deleteProformaButton')
-        self.clientNameInput = self.findChild(QLineEdit, 'clientNameInput')
-        self.addClientButton = self.findChild(QPushButton, 'addClientButton')
-        self.deleteClientButton = self.findChild(QPushButton, 'deleteClientButton')
-        self.searchButton = self.findChild(QPushButton, 'searchButton')
-        self.searchInput = self.findChild(QLineEdit, 'searchInput')
-        self.searchComboBox = self.findChild(QComboBox, 'searchComboBox')
-        
-        # Если требуется, можно сделать выпадающие списки редактируемыми
-        self.caseNameInput.setEditable(True)
-        self.clientInput.setEditable(True)
-        self.caseNameInput.lineEdit().textEdited.connect(self.filter_case_names)
-        self.clientInput.lineEdit().textEdited.connect(self.filter_client_names)
+        # --- Firebase ---
+        self.firebase_manager = FirebaseManager()
 
-        self.searchButton.clicked.connect(self.search_items)
-        self.searchInput.returnPressed.connect(self.search_items)
-        self.searchComboBox.addItems(["Case", "Proforma", "Client"])
+        # --- Виджеты, к-рые используем напрямую во вкладках ---
+        # Case
+        self.caseNameInput: QComboBox = self.findChild(QComboBox, 'caseNameInput')
+        self.clientInput: QComboBox = self.findChild(QComboBox, 'clientInput')
+        self.addCaseButton: QPushButton = self.findChild(QPushButton, 'addCaseButton')
+        self.deleteCaseButton: QPushButton = self.findChild(QPushButton, 'deleteCaseButton')
+        self.caseTable: QTableWidget = self.findChild(QTableWidget, 'caseTable')
 
-        # Масштабирование окна (например, 60% от доступного экрана)
-        screen = QApplication.primaryScreen().availableGeometry()
-        self.resize(int(screen.width() * 0.6), int(screen.height() * 0.6))
+        # Proforma
+        self.proformaClientInput: QComboBox = self.findChild(QComboBox, 'proformaClientInput')
+        self.proformaNameInput: QComboBox = self.findChild(QComboBox, 'proformaNameInput')
+        self.addProformaButton: QPushButton = self.findChild(QPushButton, 'addProformaButton')
+        self.deleteProformaButton: QPushButton = self.findChild(QPushButton, 'deleteProformaButton')
+        self.proformaCommentInput: QLineEdit = self.findChild(QLineEdit, 'proformaCommentInput')
+        self.proformaTable: QTableWidget = self.findChild(QTableWidget, 'proformaTable')
 
-        # Увеличение шрифта для всех виджетов
-        font = self.font()
-        font.setPointSize(12)
-        self.setFont(font)
+        # Clients
+        self.clientNameInput: QLineEdit = self.findChild(QLineEdit, 'clientNameInput')
+        self.addClientButton: QPushButton = self.findChild(QPushButton, 'addClientButton')
+        self.deleteClientButton: QPushButton = self.findChild(QPushButton, 'deleteClientButton')
+        self.clientTable: QTableWidget = self.findChild(QTableWidget, 'clientTable')
 
-        # Установка фильтра событий (например, для обработки изменения размера окна)
+        # Cargo
+        self.cargoTable: QTableWidget = self.findChild(QTableWidget, 'cargoTable')
+
+        # Suppliers
+        self.supplierTable: QTableWidget = self.findChild(QTableWidget, 'supplierTable')
+        self.addSupplierButton: QPushButton = self.findChild(QPushButton, 'addSupplierButton')
+        self.deleteSupplierButton: QPushButton = self.findChild(QPushButton, 'deleteSupplierButton')
+        self.supplierNameInput: QLineEdit = self.findChild(QLineEdit, 'supplierNameInput')  
+
+        # Search
+        self.searchButton: QPushButton = self.findChild(QPushButton, 'searchButton')
+        self.searchInput: QLineEdit = self.findChild(QLineEdit, 'searchInput')
+        self.searchComboBox: QComboBox = self.findChild(QComboBox, 'searchComboBox')
+        if self.searchComboBox and self.searchComboBox.count() == 0:
+            self.searchComboBox.addItems(["Case", "Proforma", "Client"])
+
+        # Шрифты/размер окна
+        screen_geo = QApplication.primaryScreen().availableGeometry()
+        self.resize(int(screen_geo.width() * 0.6), int(screen_geo.height() * 0.6))
+        f = self.font(); f.setPointSize(12); self.setFont(f)
+
+        # Редактируемые выпадающие списки + фильтрация
+        if self.caseNameInput:
+            self.caseNameInput.setEditable(True)
+            self.caseNameInput.lineEdit().textEdited.connect(self.filter_case_names)
+        if self.clientInput:
+            self.clientInput.setEditable(True)
+            self.clientInput.lineEdit().textEdited.connect(self.filter_client_names)
+
+        # Поиск
+        if self.searchButton:
+            self.searchButton.clicked.connect(self.search_items)
+        if self.searchInput:
+            self.searchInput.returnPressed.connect(self.search_items)
+
+        # Resize-хуки
         self.installEventFilter(self)
 
-        # Инициализация всех вкладок.
-        # При инициализации классов вкладок мы передаём ссылку на главное окно,
-        # поэтому в каждой вкладке можно обратиться к нужным виджетам через main_window.
+        # --- Вкладки (классы) ---
         self.case_numbers_tab = CaseNumbersTab(self, self.firebase_manager)
-        self.proforma_tab = ProformaTab(self, self.firebase_manager)
-        self.clients_tab = ClientsTab(self, self.firebase_manager)
-        self.cargo_tab = CargoTab(self, self.firebase_manager)
-        self.suppliers_tab = SuppliersTab(self, self.firebase_manager)
-        self.settings_tab = SettingsTab(self, self.firebase_manager)
+        self.proforma_tab     = ProformaTab(self, self.firebase_manager)
+        self.clients_tab      = ClientsTab(self, self.firebase_manager)
+        self.cargo_tab        = CargoTab(self, self.firebase_manager)
+        self.suppliers_tab    = SuppliersTab(self, self.firebase_manager)
+        self.settings_tab     = SettingsTab(self, self.firebase_manager)
 
-        # Автообновление комбобоксов "Проформ" при переключении вкладок
-        for tw in self.findChildren(QTabWidget):
-            if self.proforma_tab.proformaTable and tw.isAncestorOf(self.proforma_tab.proformaTable):
-                tw.currentChanged.connect(self.on_tab_changed)
-                break
-
-        # Если в вашем main.ui уже есть QTabWidget для настроек (objectName "settingsTab"), добавляем вкладку настроек
-        self.settingsTabWidget = self.findChild(QTabWidget, "settingsTab")
-        if self.settingsTabWidget:
-            self.settingsTabWidget.addTab(self.settings_tab, "Настройки")
+        # Если в main.ui есть общий QTabWidget с objectName "settingsTab" — используем его
+        self.settingsTabWidget: QTabWidget = self.findChild(QTabWidget, "settingsTab")
+        if not self.settingsTabWidget:
+            logging.error("QTabWidget 'settingsTab' не найден. Проверь objectName в main.ui.")
         else:
-            logging.error("QTabWidget с objectName 'settingsTab' не найден в main.ui.")
+            # Добавим вкладку «Настройки», если она отдельным виджетом
+            try:
+                self.settingsTabWidget.addTab(self.settings_tab, "Настройки")
+            except Exception:
+                pass
 
-        # Пример: можно вызвать метод загрузки данных для вкладки "Грузы"
-        self.cargo_tab.load_cargo_table()
+            # Подписка на смену вкладок -> activate/deactivate
+            self.settingsTabWidget.currentChanged.connect(self._on_tabs_changed)
 
+            # Активируем текущую вкладку при старте
+            QTimer.singleShot(0, lambda: self._on_tabs_changed(self.settingsTabWidget.currentIndex()))
+
+        # Первичное наполнение (лёгкое) некоторых таблиц
+        try:
+            self.suppliers_tab.load_supplier_table_data()
+        except Exception as e:
+            logging.warning(f"Первичная загрузка suppliers: {e}")
+
+        # Первичное наполнение выпадающих списков (чтобы не были пустыми на старте)
+        try:
+            # Вкладка «Номера дел»
+            self.case_numbers_tab.load_unique_names()
+            self.case_numbers_tab.load_clients_into_combobox()
+        except Exception as e:
+            logging.warning(f"Первичная подгрузка комбобоксов Case: {e}")
+
+        try:
+            # Вкладка «Проформы»
+            self.proforma_tab.load_case_numbers_for_proforma()
+            self.proforma_tab.load_managers_into_combobox()
+        except Exception as e:
+            logging.warning(f"Первичная подгрузка комбобоксов Proforma: {e}")
+
+    # ---------- Поиск ----------
     def search_items(self):
-        search_text = self.searchInput.text().strip().lower()
-        search_type = self.searchComboBox.currentText()
-        if search_type == "Case":
-            search_in_case_table(self.case_numbers_tab.main_window.caseTable, self.firebase_manager, search_text, self)
-        elif search_type == "Proforma":
-            search_in_proforma_table(self.proforma_tab.proformaTable, self.firebase_manager, search_text, self)
-        elif search_type == "Client":
-            search_in_client_table(self.clients_tab.clientTable, self.firebase_manager, search_text, self)
-        else:
-            QMessageBox.warning(self, "Поиск", f"Неизвестная вкладка: {search_type}")
-            logging.error(f"User selected unknown search tab: {search_type}")
+        text = (self.searchInput.text() if self.searchInput else "").strip().lower()
+        tab = self.searchComboBox.currentText() if self.searchComboBox else "Case"
 
+        if tab == "Case":
+            search_in_case_table(self.case_numbers_tab.main_window.caseTable, self.firebase_manager, text, self)
+        elif tab == "Proforma":
+            search_in_proforma_table(self.proforma_tab.proformaTable, self.firebase_manager, text, self)
+        elif tab == "Client":
+            search_in_client_table(self.clients_tab.clientTable, self.firebase_manager, text, self)
+        else:
+            QMessageBox.warning(self, "Поиск", f"Неизвестная вкладка: {tab}")
+            logging.error(f"Unknown search tab: {tab}")
+
+    # ---------- Смена вкладок (ленивая активация) ----------
+    def _on_tabs_changed(self, idx: int):
+            if not self.settingsTabWidget:
+                return
+
+            w = self.settingsTabWidget.widget(idx)
+            obj = w.objectName() if w else ""
+            logging.debug(f"_on_tabs_changed: idx={idx}, objectName={obj}")
+
+            # Снимаем активность со всех вкладок
+            for tab in (self.proforma_tab, self.case_numbers_tab, self.clients_tab, self.cargo_tab, self.suppliers_tab):
+                try:
+                    tab.deactivate()
+                except Exception:
+                    pass
+
+            # 1) Пытаемся по ожидаемым objectName
+            try:
+                if obj in ("tab", "TabCases", "casesTab"):
+                    self.case_numbers_tab.activate(); return
+                if obj in ("tab_2", "proformaTab"):
+                    self.proforma_tab.activate(); return
+                if obj in ("tab_3", "clientsTab"):
+                    self.clients_tab.activate(); return
+                if obj in ("cargoTab",):
+                    self.cargo_tab.activate(); return
+                if obj in ("suppliersTab",):
+                    self.suppliers_tab.activate(); return
+                if obj in ("settingsTabPage",):
+                    return  # настройки
+            except Exception as e:
+                logging.error(f"_on_tabs_changed (by name) error: {e}")
+
+            # 2) Фолбэк: распознаём вкладку по наличию виджетов внутри страницы
+            try:
+                if w:
+                    if w.findChild(QTableWidget, "supplierTable"):
+                        self.suppliers_tab.activate(); return
+                    if w.findChild(QTableWidget, "cargoTable"):
+                        self.cargo_tab.activate(); return
+                    if w.findChild(QTableWidget, "clientTable"):
+                        self.clients_tab.activate(); return
+                    if w.findChild(QTableWidget, "proformaTable"):
+                        self.proforma_tab.activate(); return
+                    if w.findChild(QTableWidget, "caseTable"):
+                        self.case_numbers_tab.activate(); return
+            except Exception as e:
+                logging.error(f"_on_tabs_changed (by content) error: {e}")
+
+            # 3) Совсем на всякий случай — включим проформу
+            try:
+                self.proforma_tab.activate()
+            except Exception:
+                pass
+
+    # ---------- Resize ----------
     def eventFilter(self, source, event):
         if event.type() == QEvent.Resize and source is self:
             self.resize_tables()
-        return super(MainWindow, self).eventFilter(source, event)
+        return super().eventFilter(source, event)
 
     def resize_tables(self):
-        # Обратите внимание: теперь используем виджеты, найденные через findChild через main_window,
-        # поскольку в некоторых вкладках (например, CaseNumbersTab) таблица хранится в главном окне.
-        self.findChild(QTableWidget, "caseTable").horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self.proforma_tab.proformaTable.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self.clients_tab.clientTable.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self.cargo_tab.cargoTable.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self.suppliers_tab.supplierTable.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-
-    def on_tab_changed(self, _idx):
-        # Когда вкладка с таблицей проформ стала видимой — обновляем выпадающие списки
         try:
-            if self.proforma_tab.proformaTable and self.proforma_tab.proformaTable.isVisible():
-                self.proforma_tab.load_case_numbers_for_proforma()
-                self.proforma_tab.load_managers_into_combobox()
+            if self.caseTable:
+                self.caseTable.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+            if self.proformaTable:
+                self.proformaTable.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+            if self.clientTable:
+                self.clientTable.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+            if self.cargoTable:
+                self.cargoTable.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+            if self.supplierTable:
+                self.supplierTable.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         except Exception as e:
-            logging.error(f"on_tab_changed error: {e}")
+            logging.debug(f"resize_tables: {e}")
 
-    def filter_case_names(self, text):
+    # ---------- Фильтры выпадающих списков ----------
+    def filter_case_names(self, text: str):
+        if not self.caseNameInput:
+            return
         self.caseNameInput.clear()
         cases = self.firebase_manager.get_all_cases()
         if cases:
-            unique_names = set()
-            for case_id, case_data in cases.items():
-                name = case_data.get('name', '')
-                if isinstance(name, str) and text.lower() in name.lower():
-                    unique_names.add(name)
-            self.caseNameInput.addItems(sorted(unique_names))
+            uniq = set()
+            for _, c in cases.items():
+                name = (c.get("manager") or c.get("name") or "").strip() if isinstance(c, dict) else ""
+                if text.lower() in name.lower():
+                    uniq.add(name)
+            self.caseNameInput.addItems(sorted(uniq))
             self.caseNameInput.setCurrentText(text)
         self.caseNameInput.repaint()
 
-    def filter_client_names(self, text):
+    def filter_client_names(self, text: str):
+        if not self.clientInput:
+            return
         self.clientInput.clear()
         clients = self.firebase_manager.get_all_clients()
         if clients:
-            unique_names = set()
-            for client_id, client_data in clients.items():
-                name = client_data.get('name', '')
-                if isinstance(name, str) and text.lower() in name.lower():
-                    unique_names.add(name)
-            self.clientInput.addItems(sorted(unique_names))
+            uniq = set()
+            for _, c in clients.items():
+                name = (c.get("name") or "").strip() if isinstance(c, dict) else str(c)
+                if text.lower() in name.lower():
+                    uniq.add(name)
+            self.clientInput.addItems(sorted(uniq))
             self.clientInput.setCurrentText(text)
         self.clientInput.repaint()
 
 
-if __name__ == "__main__":
-    APP_DIR = Path(__file__).resolve().parent
-    LOGIN_UI_PATH = APP_DIR / 'ui' / 'login.ui'
-    if not LOGIN_UI_PATH.exists():
-        logging.error(f"Файл UI не найден: {LOGIN_UI_PATH}")
+def run_app():
+    app_dir = Path(__file__).resolve().parent
+    login_ui = app_dir / 'ui' / 'login.ui'
+    if not login_ui.exists():
+        logging.error(f"Файл UI не найден: {login_ui}")
 
     app = QApplication(sys.argv)
-    # Применить тему Material при необходимости:
-    # from qt_material import apply_stylesheet
-    # apply_stylesheet(app, theme='dark_teal.xml')
 
-    login_dialog = LoginDialog(ui_file=str(LOGIN_UI_PATH))
-    if login_dialog.exec_() == QDialog.Accepted:
-        splash = SplashScreen(app)
-        splash.show()
-        splash.update_message("Инициализация...", app)
-        QTimer.singleShot(1000, lambda: splash.update_message("Загрузка данных...", app))
-        QTimer.singleShot(2000, lambda: splash.update_message("Подготовка интерфейса...", app))
+    # Логин
+    login_dialog = LoginDialog(ui_file=str(login_ui))
+    if login_dialog.exec_() != QDialog.Accepted:
+        sys.exit(0)
 
-        main_window = MainWindow()
+    # Splash
+    splash = SplashScreen(app)
+    splash.show()
+    splash.update_message("Инициализация...", app)
+    QTimer.singleShot(600, lambda: splash.update_message("Загрузка данных...", app))
+    QTimer.singleShot(1200, lambda: splash.update_message("Подготовка интерфейса...", app))
 
-        splash.update_message("Загрузка данных о клиентах...", app)
-        main_window.clients_tab.load_client_table_data()
-        splash.update_message("Загрузка данных о проформах...", app)
-        main_window.proforma_tab.load_proforma_table_data()
-        splash.update_message("Загрузка уникальных имен...", app)
-        main_window.case_numbers_tab.load_unique_names()
-        splash.update_message("Загрузка данных о делах...", app)
-        main_window.case_numbers_tab.load_case_table_data()
+    # Главное окно
+    mw = MainWindow()
 
-        QTimer.singleShot(3000, splash.close)
-        main_window.show()
-        splash.finish(main_window)
-        sys.exit(app.exec_())
+    # Лёгкая первичная подгрузка (чтобы не было пусто на старте)
+    try:
+        splash.update_message("Загрузка клиентов...", app)
+        mw.clients_tab.load_client_table_data()
+        splash.update_message("Загрузка проформ...", app)
+        mw.proforma_tab.load_proforma_table_data()
+        splash.update_message("Загрузка дел...", app)
+        mw.case_numbers_tab.load_case_table_data()
+        splash.update_message("Загрузка поставщиков...", app)
+        mw.suppliers_tab.load_supplier_table_data()
+        splash.update_message("Подготовка списков дел...", app)
+        mw.case_numbers_tab.load_unique_names()
+        mw.case_numbers_tab.load_clients_into_combobox()
+
+        splash.update_message("Подготовка списков проформ...", app)
+        mw.proforma_tab.load_case_numbers_for_proforma()
+        mw.proforma_tab.load_managers_into_combobox()
+
+    except Exception as e:
+        logging.warning(f"Первичная подгрузка: {e}")
+
+    QTimer.singleShot(1800, splash.close)
+    mw.show()
+    splash.finish(mw)
+    sys.exit(app.exec_())
+
+
+if __name__ == "__main__":
+    run_app()

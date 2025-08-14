@@ -40,3 +40,5 @@ six==1.17.0
 tzdata==2025.2
 uritemplate==4.1.1
 urllib3==2.5.0
+sseclient-py==1.8.0
+requests==2.32.3
