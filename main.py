@@ -5,10 +5,9 @@ from pathlib import Path
 
 from PyQt5 import uic
 from PyQt5.QtCore import Qt, QTimer, QEvent
-from PyQt5.QtGui import QPixmap
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QDialog, QComboBox, QLineEdit, QPushButton,
-    QTableWidget, QTableWidgetItem, QHeaderView, QMessageBox, QTabWidget
+    QTableWidget, QHeaderView, QMessageBox, QTabWidget
 )
 
 from config.logging_config import setup_logging
@@ -26,22 +25,12 @@ from src.dialogs.login_dialog import LoginDialog
 from src.search_functions import (
     search_in_proforma_table, search_in_client_table, search_in_case_table
 )
-from splash_screen import SplashScreen
-
 
 # ---------- Логирование ----------
 setup_logging()
 
 
 class MainWindow(QMainWindow):
-    """
-    Главное окно:
-    - Загружает main.ui
-    - Инициализирует вкладки
-    - Делает вкладки «ленивыми» (activate/deactivate)
-    - Реализует поиск и resize таблиц
-    """
-
     def __init__(self):
         super().__init__()
 
@@ -69,7 +58,6 @@ class MainWindow(QMainWindow):
         self.proformaNameInput: QComboBox = self.findChild(QComboBox, 'proformaNameInput')
         self.addProformaButton: QPushButton = self.findChild(QPushButton, 'addProformaButton')
         self.deleteProformaButton: QPushButton = self.findChild(QPushButton, 'deleteProformaButton')
-        self.proformaCommentInput: QLineEdit = self.findChild(QLineEdit, 'proformaCommentInput')
         self.proformaTable: QTableWidget = self.findChild(QTableWidget, 'proformaTable')
 
         # Clients
@@ -80,12 +68,14 @@ class MainWindow(QMainWindow):
 
         # Cargo
         self.cargoTable: QTableWidget = self.findChild(QTableWidget, 'cargoTable')
+        self.cargoCaseNumberInput: QComboBox = self.findChild(QComboBox, 'cargoCaseNumberInput')
+        self.cargoSupplierInput: QComboBox = self.findChild(QComboBox, 'cargoSupplierInput')
 
         # Suppliers
         self.supplierTable: QTableWidget = self.findChild(QTableWidget, 'supplierTable')
         self.addSupplierButton: QPushButton = self.findChild(QPushButton, 'addSupplierButton')
         self.deleteSupplierButton: QPushButton = self.findChild(QPushButton, 'deleteSupplierButton')
-        self.supplierNameInput: QLineEdit = self.findChild(QLineEdit, 'supplierNameInput')  
+        self.supplierNameInput: QLineEdit = self.findChild(QLineEdit, 'supplierNameInput')
 
         # Search
         self.searchButton: QPushButton = self.findChild(QPushButton, 'searchButton')
@@ -120,7 +110,15 @@ class MainWindow(QMainWindow):
         self.case_numbers_tab = CaseNumbersTab(self, self.firebase_manager)
         self.proforma_tab     = ProformaTab(self, self.firebase_manager)
         self.clients_tab      = ClientsTab(self, self.firebase_manager)
-        self.cargo_tab        = CargoTab(self, self.firebase_manager)
+
+        # >>> Передаём РЕАЛЬНЫЕ комбобоксы в CargoTab <<<
+        self.cargo_tab        = CargoTab(
+            self,
+            self.firebase_manager,
+            cargo_case_combo=self.cargoCaseNumberInput,
+            cargo_supplier_combo=self.cargoSupplierInput,
+        )
+
         self.suppliers_tab    = SuppliersTab(self, self.firebase_manager)
         self.settings_tab     = SettingsTab(self, self.firebase_manager)
 
@@ -129,34 +127,27 @@ class MainWindow(QMainWindow):
         if not self.settingsTabWidget:
             logging.error("QTabWidget 'settingsTab' не найден. Проверь objectName в main.ui.")
         else:
-            # Добавим вкладку «Настройки», если она отдельным виджетом
             try:
                 self.settingsTabWidget.addTab(self.settings_tab, "Настройки")
             except Exception:
                 pass
 
-            # Подписка на смену вкладок -> activate/deactivate
             self.settingsTabWidget.currentChanged.connect(self._on_tabs_changed)
-
-            # Активируем текущую вкладку при старте
             QTimer.singleShot(0, lambda: self._on_tabs_changed(self.settingsTabWidget.currentIndex()))
 
-        # Первичное наполнение (лёгкое) некоторых таблиц
+        # Первичное наполнение (лёгкое)
         try:
             self.suppliers_tab.load_supplier_table_data()
         except Exception as e:
             logging.warning(f"Первичная загрузка suppliers: {e}")
 
-        # Первичное наполнение выпадающих списков (чтобы не были пустыми на старте)
         try:
-            # Вкладка «Номера дел»
             self.case_numbers_tab.load_unique_names()
             self.case_numbers_tab.load_clients_into_combobox()
         except Exception as e:
             logging.warning(f"Первичная подгрузка комбобоксов Case: {e}")
 
         try:
-            # Вкладка «Проформы»
             self.proforma_tab.load_case_numbers_for_proforma()
             self.proforma_tab.load_managers_into_combobox()
         except Exception as e:
@@ -177,60 +168,56 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Поиск", f"Неизвестная вкладка: {tab}")
             logging.error(f"Unknown search tab: {tab}")
 
-    # ---------- Смена вкладок (ленивая активация) ----------
+    # ---------- Смена вкладок ----------
     def _on_tabs_changed(self, idx: int):
-            if not self.settingsTabWidget:
-                return
+        if not self.settingsTabWidget:
+            return
 
-            w = self.settingsTabWidget.widget(idx)
-            obj = w.objectName() if w else ""
-            logging.debug(f"_on_tabs_changed: idx={idx}, objectName={obj}")
+        w = self.settingsTabWidget.widget(idx)
+        obj = w.objectName() if w else ""
+        logging.debug(f"_on_tabs_changed: idx={idx}, objectName={obj}")
 
-            # Снимаем активность со всех вкладок
-            for tab in (self.proforma_tab, self.case_numbers_tab, self.clients_tab, self.cargo_tab, self.suppliers_tab):
-                try:
-                    tab.deactivate()
-                except Exception:
-                    pass
-
-            # 1) Пытаемся по ожидаемым objectName
+        for tab in (self.proforma_tab, self.case_numbers_tab, self.clients_tab, self.cargo_tab, self.suppliers_tab):
             try:
-                if obj in ("tab", "TabCases", "casesTab"):
-                    self.case_numbers_tab.activate(); return
-                if obj in ("tab_2", "proformaTab"):
-                    self.proforma_tab.activate(); return
-                if obj in ("tab_3", "clientsTab"):
-                    self.clients_tab.activate(); return
-                if obj in ("cargoTab",):
-                    self.cargo_tab.activate(); return
-                if obj in ("suppliersTab",):
-                    self.suppliers_tab.activate(); return
-                if obj in ("settingsTabPage",):
-                    return  # настройки
-            except Exception as e:
-                logging.error(f"_on_tabs_changed (by name) error: {e}")
-
-            # 2) Фолбэк: распознаём вкладку по наличию виджетов внутри страницы
-            try:
-                if w:
-                    if w.findChild(QTableWidget, "supplierTable"):
-                        self.suppliers_tab.activate(); return
-                    if w.findChild(QTableWidget, "cargoTable"):
-                        self.cargo_tab.activate(); return
-                    if w.findChild(QTableWidget, "clientTable"):
-                        self.clients_tab.activate(); return
-                    if w.findChild(QTableWidget, "proformaTable"):
-                        self.proforma_tab.activate(); return
-                    if w.findChild(QTableWidget, "caseTable"):
-                        self.case_numbers_tab.activate(); return
-            except Exception as e:
-                logging.error(f"_on_tabs_changed (by content) error: {e}")
-
-            # 3) Совсем на всякий случай — включим проформу
-            try:
-                self.proforma_tab.activate()
+                tab.deactivate()
             except Exception:
                 pass
+
+        try:
+            if obj in ("tab", "TabCases", "casesTab"):
+                self.case_numbers_tab.activate(); return
+            if obj in ("tab_2", "proformaTab"):
+                self.proforma_tab.activate(); return
+            if obj in ("tab_3", "clientsTab"):
+                self.clients_tab.activate(); return
+            if obj in ("cargoTab",):
+                self.cargo_tab.activate(); return
+            if obj in ("suppliersTab",):
+                self.suppliers_tab.activate(); return
+            if obj in ("settingsTabPage",):
+                return
+        except Exception as e:
+            logging.error(f"_on_tabs_changed (by name) error: {e}")
+
+        try:
+            if w:
+                if w.findChild(QTableWidget, "supplierTable"):
+                    self.suppliers_tab.activate(); return
+                if w.findChild(QTableWidget, "cargoTable"):
+                    self.cargo_tab.activate(); return
+                if w.findChild(QTableWidget, "clientTable"):
+                    self.clients_tab.activate(); return
+                if w.findChild(QTableWidget, "proformaTable"):
+                    self.proforma_tab.activate(); return
+                if w.findChild(QTableWidget, "caseTable"):
+                    self.case_numbers_tab.activate(); return
+        except Exception as e:
+            logging.error(f"_on_tabs_changed (by content) error: {e}")
+
+        try:
+            self.proforma_tab.activate()
+        except Exception:
+            pass
 
     # ---------- Resize ----------
     def eventFilter(self, source, event):
@@ -240,16 +227,20 @@ class MainWindow(QMainWindow):
 
     def resize_tables(self):
         try:
-            if self.caseTable:
-                self.caseTable.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-            if self.proformaTable:
-                self.proformaTable.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-            if self.clientTable:
-                self.clientTable.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-            if self.cargoTable:
-                self.cargoTable.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-            if self.supplierTable:
-                self.supplierTable.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+            tables = [
+                self.caseTable,
+                self.proformaTable,
+                self.clientTable,
+                self.cargoTable,
+                self.supplierTable,
+            ]
+            for t in tables:
+                if not t:
+                    continue
+                header = t.horizontalHeader()
+                header.setSectionResizeMode(QHeaderView.ResizeToContents)
+                header.setStretchLastSection(True)
+                t.resizeColumnsToContents()  # на всякий случай сразу пересчёт
         except Exception as e:
             logging.debug(f"resize_tables: {e}")
 
@@ -293,31 +284,36 @@ def run_app():
 
     app = QApplication(sys.argv)
 
-    # Логин
+    # 1) ЛОГИН (модально)
     login_dialog = LoginDialog(ui_file=str(login_ui))
-    if login_dialog.exec_() != QDialog.Accepted:
+    result = login_dialog.exec_()
+    if result != QDialog.Accepted:
         sys.exit(0)
+    # На этом этапе окно логина закрыто.
 
-    # Splash
+    # 2) Сплэш — импорт и создание ТОЛЬКО после успешного логина
+    from splash_screen import SplashScreen
     splash = SplashScreen(app)
     splash.show()
-    splash.update_message("Инициализация...", app)
-    QTimer.singleShot(600, lambda: splash.update_message("Загрузка данных...", app))
-    QTimer.singleShot(1200, lambda: splash.update_message("Подготовка интерфейса...", app))
+    app.processEvents()
 
-    # Главное окно
+    # 3) Главное окно
     mw = MainWindow()
 
-    # Лёгкая первичная подгрузка (чтобы не было пусто на старте)
+    # 4) Лёгкая первичная подгрузка (с сообщениями на сплэше)
     try:
         splash.update_message("Загрузка клиентов...", app)
         mw.clients_tab.load_client_table_data()
+
         splash.update_message("Загрузка проформ...", app)
         mw.proforma_tab.load_proforma_table_data()
+
         splash.update_message("Загрузка дел...", app)
         mw.case_numbers_tab.load_case_table_data()
+
         splash.update_message("Загрузка поставщиков...", app)
         mw.suppliers_tab.load_supplier_table_data()
+
         splash.update_message("Подготовка списков дел...", app)
         mw.case_numbers_tab.load_unique_names()
         mw.case_numbers_tab.load_clients_into_combobox()
@@ -325,13 +321,14 @@ def run_app():
         splash.update_message("Подготовка списков проформ...", app)
         mw.proforma_tab.load_case_numbers_for_proforma()
         mw.proforma_tab.load_managers_into_combobox()
-
     except Exception as e:
         logging.warning(f"Первичная подгрузка: {e}")
 
-    QTimer.singleShot(1800, splash.close)
+    # 5) Показываем приложение и закрываем сплэш
     mw.show()
+    app.processEvents()
     splash.finish(mw)
+
     sys.exit(app.exec_())
 
 
